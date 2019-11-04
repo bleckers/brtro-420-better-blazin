@@ -81,7 +81,7 @@ typedef struct {
 
 PID3_t heaterPIDChan0 = { PID_KP_PREHEAT_C0, PID_KI_PREHEAT_C0, PID_KD_PREHEAT_C0, PID_KP_SOAK_C0, PID_KI_SOAK_C0, PID_KD_SOAK_C0, PID_KP_REFLOW_C0, PID_KI_REFLOW_C0, PID_KD_REFLOW_C0 };
 PID3_t heaterPIDChan1 = { PID_KP_PREHEAT_C1, PID_KI_PREHEAT_C1, PID_KD_PREHEAT_C1, PID_KP_SOAK_C1, PID_KI_SOAK_C1, PID_KD_SOAK_C1, PID_KP_REFLOW_C1, PID_KI_REFLOW_C1, PID_KD_REFLOW_C1 };
-PID_t fanPID    = { 100.00, 0.5, 20.00 }; //{ 1.00, 0.03, 10.00 };
+PID_t fanPID    = { 10.00, 0.03, 10.00 }; //{ 1.00, 0.03, 10.00 };
 
 PID PIDChan0(&InputChan0, &OutputChan0, &SetpointChan0, heaterPIDChan0.Kp_PREHEAT, heaterPIDChan0.Ki_PREHEAT, heaterPIDChan0.Kd_PREHEAT, DIRECT);
 
@@ -268,6 +268,12 @@ unsigned long previousTimeUpdateTemp = 0;
 unsigned long previousTimeReadTemp = 0;
 
 int enableMenu = 1;
+
+bool celsiusMode = true; //true is celcius, false is farenheit
+double cToF(double celsius)
+{
+  return (1.8 * celsius) + 32;
+}
 
 int reflow = 0;
 unsigned long previousTimeReflowDisplayUpdate = 0;
@@ -664,13 +670,14 @@ void drawMenu(int index)
       break;
     case 1: //Config Menu
       u8g2.setCursor(107, 14);
-      u8g2.print("oC");
+      if (celsiusMode) u8g2.print("oC");
+      else u8g2.print("oF");
       u8g2.setCursor(105, 24);
-      u8g2.print("TC0");
+      u8g2.print("TC0"); //TODO placement of TC
       u8g2.setCursor(105, 34);
       u8g2.print("TC1");
       u8g2.setCursor(99, 44);
-      u8g2.print("------");
+      u8g2.print("White"); //TODO put offset profiles for different board colours
       u8g2.setCursor(99, 57);
       u8g2.print("------");
       break;
@@ -747,9 +754,11 @@ void drawMenu(int index)
       }
 
       u8g2.setCursor(101, 24);
-      u8g2.print((int)shouldBeTemp);
+      if (celsiusMode) u8g2.print((int)shouldBeTemp);
+      else u8g2.print((int)cToF(shouldBeTemp));
       u8g2.setCursor(101, 34);
-      u8g2.print((rampRateChan0 + rampRateChan1) / 2);
+      if (celsiusMode) u8g2.print((rampRateChan0 + rampRateChan1) / 2);
+      else u8g2.print(cToF((rampRateChan0 + rampRateChan1) / 2));
       u8g2.setCursor(105, 44);
       u8g2.print(currentReflowSeconds); //Degrees per second
       u8g2.setCursor(103, 57);
@@ -767,7 +776,8 @@ void drawMenu(int index)
             u8g2.setCursor(99, 24);
             u8g2.print("Temp");
             u8g2.setCursor(99, 34);
-            u8g2.print(profiles[currentProfile].PreHtTemp);
+            if (celsiusMode) u8g2.print(profiles[currentProfile].PreHtTemp);
+            else  u8g2.print(cToF(profiles[currentProfile].PreHtTemp));
             u8g2.setCursor(99, 44);
             u8g2.print("Seconds");
             u8g2.setCursor(99, 57);
@@ -781,6 +791,8 @@ void drawMenu(int index)
             u8g2.setCursor(99, 24);
             u8g2.print("Temp");
             u8g2.setCursor(99, 34);
+            if (celsiusMode) u8g2.print(profiles[currentProfile].HeatTemp);
+            else u8g2.print(cToF(profiles[currentProfile].HeatTemp));
             u8g2.print(profiles[currentProfile].HeatTemp);
             u8g2.setCursor(99, 44);
             u8g2.print("Seconds");
@@ -795,7 +807,8 @@ void drawMenu(int index)
             u8g2.setCursor(99, 24);
             u8g2.print("Temp");
             u8g2.setCursor(99, 34);
-            u8g2.print(profiles[currentProfile].RefTemp);
+            if (celsiusMode) u8g2.print(profiles[currentProfile].RefTemp);
+            else u8g2.print(cToF(profiles[currentProfile].RefTemp));
             u8g2.setCursor(99, 44);
             u8g2.print("Seconds");
             u8g2.setCursor(99, 57);
@@ -809,7 +822,8 @@ void drawMenu(int index)
             u8g2.setCursor(99, 24);
             u8g2.print("Temp");
             u8g2.setCursor(99, 34);
-            u8g2.print(profiles[currentProfile].RefKpTemp);
+            if (celsiusMode) u8g2.print(profiles[currentProfile].RefKpTemp);
+            else u8g2.print(cToF(profiles[currentProfile].RefKpTemp));
             u8g2.setCursor(99, 44);
             u8g2.print("Seconds");
             u8g2.setCursor(99, 57);
@@ -823,7 +837,8 @@ void drawMenu(int index)
             u8g2.setCursor(99, 24);
             u8g2.print("Temp");
             u8g2.setCursor(99, 34);
-            u8g2.print(profiles[currentProfile].CoolTemp);
+            if (celsiusMode) u8g2.print(profiles[currentProfile].CoolTemp);
+            else u8g2.print(cToF(profiles[currentProfile].CoolTemp));
             u8g2.setCursor(99, 44);
             u8g2.print("Seconds");
             u8g2.setCursor(99, 57);
@@ -1082,7 +1097,8 @@ void updateTemps()
       if (tc0Temp < 100)
         u8g2log.print(" ");
 
-      u8g2log.print(((double)((int)(tc0Temp * 100))) / 100);
+      if (celsiusMode) u8g2log.print(((double)((int)(tc0Temp * 100))) / 100);
+      else u8g2log.print(((double)((int)(cToF(tc0Temp) * 100))) / 100);
 
       u8g2log.print(" ");
     }
@@ -1097,13 +1113,15 @@ void updateTemps()
       if (tc1Temp < 100)
         u8g2log.print(" ");
 
-      u8g2log.print(((double)((int)(tc1Temp * 100))) / 100);
+      if (celsiusMode) u8g2log.print(((double)((int)(tc1Temp * 100))) / 100);
+      else u8g2log.print(((double)((int)(cToF(tc1Temp) * 100))) / 100);
       u8g2log.print(" ");
 
       u8g2log.print("TOP:");
       if (boardTemp < 100)
         u8g2log.print(" ");
-      u8g2log.print(((double)((int)(boardTemp * 100))) / 100);
+      if (celsiusMode) u8g2log.print(((double)((int)(boardTemp * 100))) / 100);
+      else u8g2log.print(((double)((int)(cToF(boardTemp) * 100))) / 100);
     }
 
     // Refresh the screen
@@ -1480,32 +1498,57 @@ void loop()
               Serial.println(")");
 
               Serial.print("PreHt: ");
-              Serial.print(profiles[currentProfile].PreHtTemp);
-              Serial.print("°C, ");
+              if (celsiusMode) {
+                Serial.print(profiles[currentProfile].PreHtTemp);
+                Serial.print("°C, ");
+              } else {
+                Serial.print(cToF(profiles[currentProfile].PreHtTemp));
+                Serial.print("°F, ");
+              }
               Serial.print(profiles[currentProfile].PreHtTime);
               Serial.println("s");
 
               Serial.print("Heat: ");
-              Serial.print(profiles[currentProfile].HeatTemp);
-              Serial.print("°C, ");
+              if (celsiusMode) {
+                Serial.print(profiles[currentProfile].HeatTemp);
+                Serial.print("°C, ");
+              } else {
+                Serial.print(cToF(profiles[currentProfile].HeatTemp));
+                Serial.print("°F, ");
+              }
               Serial.print(profiles[currentProfile].HeatTime);
               Serial.println("s");
 
               Serial.print("Ref: ");
-              Serial.print(profiles[currentProfile].RefTemp);
-              Serial.print("°C, ");
+              if (celsiusMode) {
+                Serial.print(profiles[currentProfile].RefTemp);
+                Serial.print("°C, ");
+              } else {
+                Serial.print(cToF(profiles[currentProfile].RefTemp));
+                Serial.print("°F, ");
+              }
               Serial.print(profiles[currentProfile].RefTime);
               Serial.println("s");
 
               Serial.print("RefKp: ");
-              Serial.print(profiles[currentProfile].RefKpTemp);
-              Serial.print("°C, ");
+              if (celsiusMode) {
+                Serial.print(profiles[currentProfile].RefKpTemp);
+                Serial.print("°C, ");
+              } else {
+                Serial.print(cToF(profiles[currentProfile].RefKpTemp));
+                Serial.print("°F, ");
+              }
               Serial.print(profiles[currentProfile].RefKpTime);
               Serial.println("s");
 
               Serial.print("Cool: ");
-              Serial.print(profiles[currentProfile].CoolTemp);
-              Serial.print("°C, ");
+              if (celsiusMode) {
+                Serial.print(profiles[currentProfile].CoolTemp);
+                Serial.print("°C, ");
+              } else {
+                Serial.print(cToF(profiles[currentProfile].CoolTemp));
+                Serial.print("°F, ");
+              }
               Serial.print(profiles[currentProfile].CoolTime);
               Serial.println("s");
 
@@ -1741,7 +1784,7 @@ void loop()
           }
           break;
       }
-    } else if (currentMenuID == 7)
+    } else if (currentMenuID == 7) //PID menu
     {
 
       switch (menuState)
@@ -1761,8 +1804,17 @@ void loop()
 
           break;
       }
+    } else if (currentMenuID == 1) //Config menu
+    {
+      switch (menuState)
+      {
 
+        case 0: //Temp units
+          celsiusMode = !celsiusMode;
+          break;
+      }
     }
+
     refreshMenu();
     drawMenu(currentMenuID);
     drawMenuBox(menuState);
@@ -1889,28 +1941,25 @@ void loop()
   //Shouldn't overflow with the timeframes required for overflow
   currentReflowSeconds = (currentTime - reflowStartTime) / 1000;
 
-  if (currentTime - previousTimeReflowDisplayUpdate >= 1000 ) //We get some skipping pixels every now and then
+  if (reflow) {
+    if ((currentReflowSeconds % 5) == 0)
+    {
+      previousTempDisplayUpdate = currentReflowSeconds;
+      drawCurrentTemp((tc1Temp + tc0Temp) / 2, currentReflowSeconds);
+    }
+  }
+
+  if (currentTime - previousTimeReflowDisplayUpdate >= 1000 )
   {
 
     previousTimeReflowDisplayUpdate = currentTime;
 
     if (reflow) {
-      //if (currentReflowSeconds > 600)
-      //{
-      //  disableReflow();
-      //} else {
-      if (currentReflowSeconds - previousTempDisplayUpdate >= 5)
-      {
-        previousTempDisplayUpdate = currentReflowSeconds;
-        drawCurrentTemp((tc1Temp + tc0Temp) / 2, currentReflowSeconds);
-      }
+
       refreshMenu();
       drawMenu(currentMenuID);
 
       u8g2.updateDisplay();
-      //}
-
-
 
       switch (currentState)
       {
@@ -1947,17 +1996,22 @@ void loop()
 
       Serial.print(currentReflowSeconds);
       Serial.print(",");
-      Serial.print(shouldBeTemp);
+      if (celsiusMode) Serial.print(shouldBeTemp);
+      else Serial.print(cToF(shouldBeTemp));
       Serial.print(",");
-      Serial.print(tc0Temp);
+      if (celsiusMode) Serial.print(tc0Temp);
+      else Serial.print(cToF(tc0Temp));
       Serial.print(",");
-      Serial.print(rampRateChan0);
+      if (celsiusMode) Serial.print(rampRateChan0);
+      else Serial.print(cToF(rampRateChan0));
       Serial.print(",");
       Serial.print(OutputChan0);
       Serial.print(",");
-      Serial.print(tc1Temp);
+      if (celsiusMode) Serial.print(tc1Temp);
+      else Serial.print(cToF(tc1Temp));
       Serial.print(",");
-      Serial.print(rampRateChan1);
+      if (celsiusMode) Serial.print(rampRateChan1);
+      else Serial.print(cToF(rampRateChan1));
       Serial.print(",");
       Serial.println(OutputChan1);
 
@@ -2053,7 +2107,7 @@ void loop()
           if (tuning) {
             shouldBeTemp = profiles[currentProfile].PreHtTemp;
           } else {
-          shouldBeTemp = ((double)abs(currentTime - startStateMillis)) / 1000 * rate + startTemp;
+            shouldBeTemp = ((double)abs(currentTime - startStateMillis)) / 1000 * rate + startTemp;
           }
 
           /* If we don't reach the temp in time, hold the temp as setpoint */
@@ -2168,7 +2222,7 @@ void loop()
             shouldBeTemp = profiles[currentProfile].HeatTemp;
           } else {
 
-          shouldBeTemp = ((double)abs(currentTime - startStateMillis)) / 1000 * rate + profiles[currentProfile].PreHtTemp;
+            shouldBeTemp = ((double)abs(currentTime - startStateMillis)) / 1000 * rate + profiles[currentProfile].PreHtTemp;
           }
 
           /* If we don't reach the temp in time, hold the temp as setpoint */
@@ -2276,7 +2330,7 @@ void loop()
           if (tuning) {
             shouldBeTemp = profiles[currentProfile].RefTemp;
           } else {
-          shouldBeTemp = ((double)abs(currentTime - startStateMillis)) / 1000 * rate + profiles[currentProfile].HeatTemp;
+            shouldBeTemp = ((double)abs(currentTime - startStateMillis)) / 1000 * rate + profiles[currentProfile].HeatTemp;
           }
 
 
