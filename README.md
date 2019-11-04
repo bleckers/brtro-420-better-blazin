@@ -4,7 +4,7 @@ Modify the BRTRO-420 reflow oven to have an Arduino based reflow firmware, USB i
 
 Blog entries about the project are here - https://hackaday.io/project/167324-brtro-420-better-blazin-mod
 
-Once the bootloader has been loaded (with your favourite SAM programming tool), the Arduino board can go into bootloader mode by issuing the "#" character over the serial terminal (at 115200 baud). This character gets issued automatically by the firmware loading process in the Arduino IDE, so you don't need to issue it manually when loading firmware.
+Once the bootloader has been loaded (with your favourite SAM programming tool), the Arduino board can go into bootloader mode by issuing the "#" character over the serial terminal (at 115200 baud). This character gets issued automatically by the firmware loading process in the Arduino IDE, so you don't need to issue it manually when loading firmware. You must use the modified bootloader from this repo and not the original Mattairtech one otherwise this won't work.
 
 Please see the pinout for the serial port here - https://cdn.hackaday.io/images/5605181570455859567.png
 You can use any USB to serial adapter to connect to this port.
