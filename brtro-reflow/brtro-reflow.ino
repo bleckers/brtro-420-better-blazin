@@ -142,6 +142,8 @@ struct StoredVar
   double KiChan1_REFLOW;
   double KdChan1_REFLOW;
 
+  bool celsiusMode;
+
   uint8_t profile;
   ReflowProfile profiles[MAX_PROFILES];
 } storedVar;
@@ -175,6 +177,7 @@ void restoreDefaults()
   storedVar.KiChan1_REFLOW = PID_KI_REFLOW_C1;
   storedVar.KdChan1_REFLOW = PID_KD_REFLOW_C1;
   storedVar.valid = true;
+  storedVar.celsiusMode = true;
 
   for (int i = 0; i < MAX_PROFILES; i++)
   {
@@ -371,18 +374,6 @@ void zeroCrossing()
   }
 }
 
-/*volatile bool otherRunning = false;
-
-  void otherRunningInterruptDB5()
-  {
-  otherRunning = true;
-  }
-
-  void otherRunningInterruptDB6()
-  {
-  otherRunning = true;
-  }*/
-
 void loadSettings()
 {
 
@@ -422,6 +413,8 @@ void loadSettings()
   heaterPIDChan1.Kp_REFLOW = storedVar.KpChan1_REFLOW;
   heaterPIDChan1.Ki_REFLOW = storedVar.KiChan1_REFLOW;
   heaterPIDChan1.Kd_REFLOW = storedVar.KdChan1_REFLOW;
+
+  celsiusMode = storedVar.celsiusMode;
 
   PIDChan0.SetTunings(heaterPIDChan0.Kp_PREHEAT, heaterPIDChan0.Ki_PREHEAT, heaterPIDChan0.Kd_PREHEAT);
   PIDChan1.SetTunings(heaterPIDChan1.Kp_PREHEAT, heaterPIDChan1.Ki_PREHEAT, heaterPIDChan1.Kd_PREHEAT);
@@ -1811,6 +1804,9 @@ void loop()
 
         case 0: //Temp units
           celsiusMode = !celsiusMode;
+          storedVar.celsiusMode = celsiusMode;
+          saved = false;
+            writeTimeout = 1000;
           break;
       }
     }
