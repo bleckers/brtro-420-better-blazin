@@ -9,4 +9,4 @@ Once the bootloader has been loaded (with your favourite SAM programming tool), 
 Please see the pinout for the serial port here - https://cdn.hackaday.io/images/5605181570455859567.png
 You can use any USB to serial adapter to connect to this port.
 
-The board files are based on the Mattairtech Xeno Mini SAMC (ATSAMC21G18A) supported firmware here - https://github.com/mattairtech/ArduinoCore-samd . The easiest way to get it working is to load the Mattairtech board, then replace the installed board files with the ones from the mod zip in this repo. I will get something more streamlined if there is any demand, but this will get you up and running straight away.
+The board files are based on the Mattairtech Xeno Mini SAMC (ATSAMC21G18A) supported firmware here - https://github.com/mattairtech/ArduinoCore-samd . The easiest way to get it working is to load the Mattairtech board, then replace the installed board files with the ones from the mod zip in this repo. I will get something more streamlined if there is any demand, but should get you up and running.
