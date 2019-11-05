@@ -1,6 +1,6 @@
 # BRTRO-420 Better Blazin' Mod
 
-Modify the BRTRO-420 reflow oven to have an Arduino based reflow firmware, USB interface and cold junction compensation.
+Modify the BRTRO-420 reflow oven to have an Arduino based reflow firmware, USB interface and cold junction compensation. This mod consists of a board that connects to the existing controller board, which replaces all the control circuitry and microcontroller. 
 
 ![Mod Image](https://cdn.hackaday.io/images/2437681569845054828.jpg)
 
