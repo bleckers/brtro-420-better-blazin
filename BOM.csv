@@ -16,7 +16,7 @@ Qty,Value,Device,Package,Parts,Description,AVAILABILITY,DESCRIPTION.1,MF,MP,PACK
 4,5.6V,DIODE-ZENER5.6V,SOD-323,"D1, D2, D3, D4",Zener Diode,,,,,,,DIO-12442,,5.6V,
 4,600,RESISTOR0603-RES,0603-RES,"R9, R10, R11, R12",Resistor,,,,,,,,,,
 1,ATSAMC21G18A,ATSAMC21G-A,TQFP-48,U1,Atmel SAMD21G SMART ARM-Based Microcontroller,,,,,,,IC-13064,,,
-2,BF821SMD,BF821SMD,SOT23-BEC,"Q1, Q2",PNP Transistror,,,,,,,,,,
+2,BF821SMD,BF821SMD or Equivalent,SOT23-BEC,"Q1, Q2",PNP Transistor,,,,,,,,,,
 1,H11AA1,H11AA1,DIP762W50P254L730H410Q6,U5,Optocoupler,Unavailable, H11AA1 Series 5000 Vrms 20 % CTR AC Input Transistor Optocoupler - DIP-6 ,Everlight,H11AA1,DIP-6 Vishay,None,,,,
 1,MAX31855,MAX31855,SOIC127P600X175-8N,U2,Cold-Junction Compensated Thermocouple-to-Digital Converter,Unavailable, ,Maxim Integrated,MAX31855,SO-8 Maxim Integrated,None,,,,
 1,MAX31855K,MAX31855,SOIC127P600X175-8N,U3,Cold-Junction Compensated Thermocouple-to-Digital Converter,Unavailable, ,Maxim Integrated,MAX31855,SO-8 Maxim Integrated,None,,,,
