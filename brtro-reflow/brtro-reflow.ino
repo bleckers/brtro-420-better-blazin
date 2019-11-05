@@ -33,31 +33,31 @@ double OutputChan1;
 
 // ******************* DEFAULT PID PARAMETERS *******************
 // ***** PRE-HEAT STAGE *****
-#define PID_KP_PREHEAT_C0 50.28 //40
-#define PID_KI_PREHEAT_C0 4.78 //0.025
-#define PID_KD_PREHEAT_C0 166.72 //20
+#define PID_KP_PREHEAT_C0 40 //50.28 //
+#define PID_KI_PREHEAT_C0 0.025 //4.78 //
+#define PID_KD_PREHEAT_C0 20 //166.72 //
 
-#define PID_KP_PREHEAT_C1 96.98 //40
-#define PID_KI_PREHEAT_C1 26.96 //0.025
-#define PID_KD_PREHEAT_C1 210.38 //20
+#define PID_KP_PREHEAT_C1 40 //96.98 //
+#define PID_KI_PREHEAT_C1 0.025 //26.96 //
+#define PID_KD_PREHEAT_C1 20 //210.38 //
 
 // ***** SOAKING STAGE *****
-#define PID_KP_SOAK_C0 97.00 //200
-#define PID_KI_SOAK_C0 25.97 //0.015
-#define PID_KD_SOAK_C0 168.54 //50
+#define PID_KP_SOAK_C0 200 //97.00 //
+#define PID_KI_SOAK_C0 0.015 //25.97 //
+#define PID_KD_SOAK_C0 50 //168.54 //
 
-#define PID_KP_SOAK_C1 44.30 //200
-#define PID_KI_SOAK_C1 6.56 //0.015
-#define PID_KD_SOAK_C1 201.32 //50
+#define PID_KP_SOAK_C1 200 //44.30 //
+#define PID_KI_SOAK_C1 0.015 //6.56 //
+#define PID_KD_SOAK_C1 50 //201.32 //
 
 // ***** REFLOW STAGE *****
-#define PID_KP_REFLOW_C0 38.12 //100
-#define PID_KI_REFLOW_C0 2.15 //0.025
-#define PID_KD_REFLOW_C0 200.13 //25
+#define PID_KP_REFLOW_C0 100 //38.12 //
+#define PID_KI_REFLOW_C0 0.025 //2.15 //
+#define PID_KD_REFLOW_C0 25 //200.13 //
 
-#define PID_KP_REFLOW_C1 43.01 //100
-#define PID_KI_REFLOW_C1 6.73 //0.025
-#define PID_KD_REFLOW_C1 400.31 //25
+#define PID_KP_REFLOW_C1 100 //43.01 //
+#define PID_KI_REFLOW_C1 0.025 //6.73 //
+#define PID_KD_REFLOW_C1 25 //400.31 //
 
 typedef struct {
   double Kp_PREHEAT;
@@ -275,7 +275,7 @@ int enableMenu = 1;
 bool celsiusMode = true; //true is celcius, false is farenheit
 double cToF(double celsius)
 {
-  return (1.8 * celsius) + 32;
+  return ((double)1.8 * celsius) + 32;
 }
 
 int reflow = 0;
@@ -1138,6 +1138,14 @@ void disableReflow()
 
 }
 
+double previousRateDisplayTemp0 = 0;
+
+double previousRateDisplayTemp1 = 0;
+
+boolean tuning = false;
+
+boolean currentStateAutotuned = false;
+
 void startReflow()
 {
   reflowStartTime = millis();
@@ -1145,6 +1153,15 @@ void startReflow()
   reflow = 1;
   //if (currentState != TUNE)
   currentState = PREHT;
+
+  shouldBeTemp = (int)((tc0Temp + tc1Temp) / 2);
+  rampRateChan0 = 0;
+  rampRateChan1 = 0;
+
+
+  previousRateDisplayTemp0 = tc0Temp;
+
+  previousRateDisplayTemp1 = tc1Temp;
 
   pollRate = 200;
   PIDChan0.SetSampleTime(200);
@@ -1165,11 +1182,7 @@ void printError()
   errorTimeout = 1;
 }
 
-double previousRateDisplayTemp0 = 0;
 
-double previousRateDisplayTemp1 = 0;
-
-boolean tuning = false;
 
 void loop()
 {
@@ -1806,7 +1819,7 @@ void loop()
           celsiusMode = !celsiusMode;
           storedVar.celsiusMode = celsiusMode;
           saved = false;
-            writeTimeout = 1000;
+          writeTimeout = 1000;
           break;
       }
     }
@@ -1934,10 +1947,11 @@ void loop()
   if (digitalRead(BACK) == 1) buttonStateBACK = 0;
 
   unsigned long currentTime = millis();
-  //Shouldn't overflow with the timeframes required for overflow
-  currentReflowSeconds = (currentTime - reflowStartTime) / 1000;
+
 
   if (reflow) {
+    //Shouldn't overflow with the timeframes required for overflow
+    currentReflowSeconds = (currentTime - reflowStartTime) / 1000;
     if ((currentReflowSeconds % 5) == 0)
     {
       previousTempDisplayUpdate = currentReflowSeconds;
@@ -2036,12 +2050,24 @@ void loop()
 
     InputChan1 = tc1Temp; // update the variable the PID reads
 
+    if (currentReflowSeconds > 1000) //16 minute safety timer
+    {
+      currentState = IDLEM;
+
+      Serial.println("Reflow Safety Timer Exceeded!");
+      u8g2log.print("\fReflow Cancelled");
+
+      printError();
+    }
+
     switch (currentState)
     {
       case PREHT:
         {
           if (currentState != previousState) { //State changed
             convectionState = 1;
+
+            currentStateAutotuned = false;
 
             //if (!tuning) OutputChan0 = 80;
             OutputChan0 = 80;
@@ -2107,10 +2133,10 @@ void loop()
           }
 
           /* If we don't reach the temp in time, hold the temp as setpoint */
-          if (shouldBeTemp > profiles[currentProfile].PreHtTemp && tc0Temp < profiles[currentProfile].PreHtTemp && tc1Temp < profiles[currentProfile].PreHtTemp)
+          if (shouldBeTemp > profiles[currentProfile].PreHtTemp)// && tc0Temp < profiles[currentProfile].PreHtTemp && tc1Temp < profiles[currentProfile].PreHtTemp)
           {
             shouldBeTemp = profiles[currentProfile].PreHtTemp;
-            SetpointChan0 = shouldBeTemp + 5;
+            SetpointChan0 = shouldBeTemp + 5; //"help" the PID system overshoot in these early reflow stages to speed up transition
             SetpointChan1 = shouldBeTemp + 5;
           } else {
 
@@ -2130,7 +2156,14 @@ void loop()
             OutputChan0 = tunerChan0.tunePID(InputChan0);
             OutputChan1 = tunerChan1.tunePID(InputChan1);
 
-            if (tunerChan0.isFinished() && tunerChan1.isFinished()) {
+            /*if (currentStateAutotuned)
+              {
+              OutputChan0 = 100;
+              OutputChan1 = 100;
+              }*/
+
+            if (tunerChan0.isFinished() && tunerChan1.isFinished() && !currentStateAutotuned) {
+              currentStateAutotuned = true;
               currentState = HEAT;
 
               heaterPIDChan0.Kp_PREHEAT = tunerChan0.getKp();
@@ -2175,6 +2208,11 @@ void loop()
 
             }
 
+            /* //Get to next temp range before tuning further
+              if (tc0Temp > profiles[currentProfile].PreHtTemp - 1 && tc1Temp > profiles[currentProfile].PreHtTemp - 1 && currentStateAutotuned) {
+               currentState = HEAT;
+              }*/
+
           } else {
 
             if (tc0Temp > profiles[currentProfile].PreHtTemp - 1 && tc1Temp > profiles[currentProfile].PreHtTemp - 1) {
@@ -2189,6 +2227,8 @@ void loop()
         {
           if (currentState != previousState) { //State changed
             convectionState = 1;
+
+            currentStateAutotuned = false;
 
             SetpointChan0 = tc0Temp;
 
@@ -2222,10 +2262,10 @@ void loop()
           }
 
           /* If we don't reach the temp in time, hold the temp as setpoint */
-          if (shouldBeTemp > profiles[currentProfile].HeatTemp && tc0Temp < profiles[currentProfile].HeatTemp && tc1Temp < profiles[currentProfile].HeatTemp)
+          if (shouldBeTemp > profiles[currentProfile].HeatTemp)// && tc0Temp < profiles[currentProfile].HeatTemp && tc1Temp < profiles[currentProfile].HeatTemp)
           {
             shouldBeTemp = profiles[currentProfile].HeatTemp;
-            SetpointChan0 = shouldBeTemp + 5; //Give steeper transition
+            SetpointChan0 = shouldBeTemp + 5; //"help" the PID system overshoot in these early reflow stages to speed up transition
             SetpointChan1 = shouldBeTemp + 5;
           } else {
 
@@ -2240,7 +2280,18 @@ void loop()
             OutputChan0 = tunerChan0.tunePID(InputChan0);
             OutputChan1 = tunerChan1.tunePID(InputChan1);
 
-            if (tunerChan0.isFinished() && tunerChan1.isFinished()) {
+            /*if (currentStateAutotuned)
+            {
+              OutputChan0 = 100;
+              OutputChan1 = 100;
+            }*/
+
+            if (tunerChan0.isFinished() && tunerChan1.isFinished() && !currentStateAutotuned) {
+
+              tunerChan0.startTuningLoop();
+              tunerChan1.startTuningLoop();
+
+              currentStateAutotuned = true;
               currentState = REF;
 
               heaterPIDChan0.Kp_SOAK = tunerChan0.getKp();
@@ -2284,6 +2335,11 @@ void loop()
               printError();
 
             }
+
+            /*//Get to next temp range before tuning further
+              if (tc0Temp >= profiles[currentProfile].HeatTemp - 1 && tc1Temp >= profiles[currentProfile].HeatTemp - 1 && currentStateAutotuned) {
+              currentState = REF;
+              }*/
 
           } else {
 
@@ -2331,7 +2387,7 @@ void loop()
 
 
           /* If we don't reach the temp in time, hold the temp as setpoint */
-          if (shouldBeTemp > profiles[currentProfile].RefTemp && tc0Temp < profiles[currentProfile].RefTemp && tc1Temp < profiles[currentProfile].RefTemp)
+          if (shouldBeTemp > profiles[currentProfile].RefTemp)// && tc0Temp < profiles[currentProfile].RefTemp && tc1Temp < profiles[currentProfile].RefTemp)
           {
             shouldBeTemp = profiles[currentProfile].RefTemp;
             SetpointChan0 = shouldBeTemp;
@@ -2348,6 +2404,12 @@ void loop()
 
             OutputChan0 = tunerChan0.tunePID(InputChan0);
             OutputChan1 = tunerChan1.tunePID(InputChan1);
+
+            /*if (currentStateAutotuned)
+            {
+              OutputChan0 = 100;
+              OutputChan1 = 100;
+            }*/
 
             if (tunerChan0.isFinished() && tunerChan1.isFinished()) {
               currentState = IDLEM; //Go straight to idle as we aren't going to tune refkp or cool
