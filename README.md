@@ -9,4 +9,8 @@ Since we don't have a reset line via the optocouplers and UART, we need a way to
 Please see the pinout for the serial port here - https://cdn.hackaday.io/images/5605181570455859567.png
 You can use any USB to serial adapter to connect to this port.
 
-The board files are based on the Mattairtech Xeno Mini SAMC (ATSAMC21G18A) supported firmware here - https://github.com/mattairtech/ArduinoCore-samd . The easiest way to get it working is to load the Mattairtech board, then replace the installed board files with the ones from the mod zip in this repo. I will get something more streamlined if there is any demand, but should get you up and running.
+The Arduino board files are based on the Mattairtech Xeno Mini SAMC (ATSAMC21G18A) supported firmware here - https://github.com/mattairtech/ArduinoCore-samd . The easiest way to get it working is to load the Mattairtech board, then replace the installed board files with the ones from the mod zip in this repo. I will get something more streamlined if there is any demand, but should get you up and running
+
+While gerbers are supplied in the repo, you can also use this link to order from OSHPark - https://oshpark.com/shared_projects/wI3J9FGP
+
+Alternatively if you don't mind waiting a couple of weeks, I can assemble, program and ship one for you for about $50USD inc shipping from Australia. Please contact me through the hackaday.io blog above if interested by leaving a comment or sending a message.
