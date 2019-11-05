@@ -2,7 +2,7 @@
 
 Modify the [BRTRO-420](http://www.charmhigh-tech.com/sale-7840318-hot-2500w-reflow-oven-brt-420-charmhigh-hot-air-infrared-300-300mm-soldering-rework-station.html) reflow oven to have an Arduino based reflow firmware, USB interface and cold junction compensation. This mod consists of a board that connects to the existing controller board, which replaces all the control circuitry and microcontroller.
 
-This oven has a few unique features over the popular T-962 oven. It has more elements (4) for starters to give a more even reflow, it also has an internal convection fan built in, it has an exhaust system which you can vent outside and it's insulation and thermal tape is actually decent, so it doesn't give of nasty smells during operation.
+This oven has a few unique features over the popular T-962 oven. It has an internal convection fan built in, it also has a fume exhaust system which you can vent outside and it's insulation and thermal tape is actually decent, so it doesn't give of nasty smells during operation.
 
 The new firmware keeps the same profile nomenclature as the original oven, so there isn't too much adjustment to the new firmware. However, it is completely written from scratch, so the profile modification workflow is a bit easier now. Note, to change the temperature in the profile edit menu, you hold the OK button on the value you want to edit and then you press the UP/DOWN arrows to adjust the value. Settings are stored automatically once exiting the profile editing screen (you will get a notification on the screen about settings being stored).
 
