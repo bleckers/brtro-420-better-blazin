@@ -670,7 +670,7 @@ void drawMenu(int index)
       u8g2.setCursor(105, 34);
       u8g2.print("TC1");
       u8g2.setCursor(99, 44);
-      u8g2.print("White"); //TODO put offset profiles for different board colours
+      u8g2.print("------");
       u8g2.setCursor(99, 57);
       u8g2.print("------");
       break;
