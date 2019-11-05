@@ -22,3 +22,5 @@ The Arduino board files are based on the Mattairtech Xeno Mini SAMC (ATSAMC21G18
 While gerbers are supplied in the repo, you can also use this link to order from OSHPark - https://oshpark.com/shared_projects/wI3J9FGP
 
 Alternatively if you don't mind waiting a couple of weeks, I can assemble, program and ship one for you for about $50USD inc shipping from Australia. Please contact me through the hackaday.io blog above if interested by leaving a comment or sending a message.
+
+The thermocouples will need to be moved/replaced and placed on the tray/PCBs for better thermal readouts (having them floating in the air with a black PCB can get the PCB up to 290 degrees Celsius). In the firmware, TC0 corresponds to the back two elements and TC1 corresponds to the front two (the back and front elements are individually controlled). Try to situate the thermocouples in the center of the elements on a sacrificial PCB or the PCB you are firing. If you aren't using a zone, just leave it where it is in the center of those elements.
