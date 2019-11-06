@@ -1,6 +1,6 @@
 # BRTRO-420 Better Blazin' Mod
 
-Modify the [BRTRO-420](http://www.charmhigh-tech.com/sale-7840318-hot-2500w-reflow-oven-brt-420-charmhigh-hot-air-infrared-300-300mm-soldering-rework-station.html) reflow oven to have an Arduino based reflow firmware, USB interface and cold junction compensation. This mod consists of a board that connects to the existing controller board, which replaces all the control circuitry and microcontroller.
+Modify the [BRTRO-420](http://www.charmhigh-tech.com/sale-7840318-hot-2500w-reflow-oven-brt-420-charmhigh-hot-air-infrared-300-300mm-soldering-rework-station.html) reflow oven to have an Arduino based reflow firmware, USB interface, cold junction compensation and zero crossing detection. This mod consists of a board that connects to the existing controller board, which replaces all the control circuitry and microcontroller.
 
 This oven has a few unique features over the popular T-962 oven, which makes it slightly more desirable if you don't mind the higher cost:
  - an internal convection fan built in.
