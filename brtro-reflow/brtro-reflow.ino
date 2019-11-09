@@ -423,7 +423,7 @@ void loadSettings()
   previousSavedProfile = currentProfile; //Used to reduce writes to flash on a common menu function
 }
 
-void checkBootloader()
+void checkSerial()
 {
   if (Serial.available())
   {
@@ -433,11 +433,20 @@ void checkBootloader()
       /* Set bootloader check value and reboot */
       BOOT_MAGIC_VALUE = BOOT_MAGIC_BOOTLOADER_ENABLE;
       NVIC_SystemReset();//software reset
-    }/* else if (c == 'R') //Command to reset for debug purposes
+    }
+    else if (c == 'R') //Command to reset for debug purposes
     {
       BOOT_MAGIC_VALUE = 0;
       NVIC_SystemReset();//software reset
-    }*/
+    }
+    else if (c == 'T') //Print Temps
+    {
+      if (celsiusMode) Serial.print(tc0Temp);
+      else Serial.print(cToF(tc0Temp));
+      Serial.print(",");
+      if (celsiusMode) Serial.print(tc1Temp);
+      else Serial.println(cToF(tc1Temp));
+    }
   }
 }
 
@@ -449,7 +458,7 @@ void setup()
   int countdown = 1000;
   while (countdown > 0)
   {
-    checkBootloader();
+    checkSerial();
     countdown--;
     delay(1);
   }
@@ -1082,7 +1091,12 @@ void updateTemps()
   if (errorTimeout <= 0) {
     if (tc0Detect != MAX31855_THERMOCOUPLE_OK)
     {
-      u8g2log.print("TC0:NC    ");
+      if (tc0Detect == MAX31855_THERMOCOUPLE_SHORT_TO_GND)
+      {
+        u8g2log.print("TC0:GND   ");
+      } else {
+        u8g2log.print("TC0:NC    ");
+      }
     }
     else
     {
@@ -1098,7 +1112,12 @@ void updateTemps()
 
     if (tc1Detect != MAX31855_THERMOCOUPLE_OK)
     {
-      u8g2log.print("TC1:NC    ");
+      if (tc1Detect == MAX31855_THERMOCOUPLE_SHORT_TO_GND)
+      {
+        u8g2log.print("TC1:GND   ");
+      } else {
+        u8g2log.print("TC1:NC    ");
+      }
     }
     else
     {
@@ -2701,6 +2720,6 @@ void loop()
     updateTemps();
   }
 
-  checkBootloader();
+  checkSerial();
   delay(1);
 }
