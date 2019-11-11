@@ -74,16 +74,13 @@ void buzzer(int pin)
 
 int intLen(int n) {
   unsigned int number_of_digits = 0;
-  bool negative = false;
-  if (n < 0) negative = true;
+
+  if (n < 0) number_of_digits++;
 
   do {
     ++number_of_digits;
     n /= 10;
   } while (n);
-
-  if (negative)
-    return number_of_digits + 1;
 
   return number_of_digits;
 }

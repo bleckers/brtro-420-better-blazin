@@ -278,7 +278,6 @@ void loadSettings()
   PIDChan1.SetTunings(heaterPIDChan1.Kp_PREHEAT, heaterPIDChan1.Ki_PREHEAT, heaterPIDChan1.Kd_PREHEAT);
 
   currentProfile = storedVar.profile;
-  previousSavedProfile = currentProfile; //Used to reduce writes to flash on a common menu function
 }
 
 void checkSerial()
@@ -373,6 +372,8 @@ void setup()
   }
 
   loadSettings();
+
+  previousSavedProfile = currentProfile; //Used to reduce writes to flash on a common menu function
 
   PIDChan0.SetOutputLimits(0, 100); // max output 100%
   PIDChan0.SetMode(AUTOMATIC);
@@ -633,12 +634,18 @@ void drawMenu(int index)
       }
 
       if (celsiusMode) {
-        setCursor(intLen((int)(rampRateChan0 + rampRateChan1) / 2) + 3, 2);
+        if (((rampRateChan0 + rampRateChan1) / 2) < 0) //Negative
+          setCursor(intLen((int)((rampRateChan0 + rampRateChan1) / 2)) + 4, 2);
+        else
+          setCursor(intLen((int)((rampRateChan0 + rampRateChan1) / 2)) + 3, 2);
         u8g2.print((rampRateChan0 + rampRateChan1) / 2);
       }
       else
       {
-        setCursor(intLen((int)cToF((rampRateChan0 + rampRateChan1) / 2)) + 3, 2);
+        if (cToF((rampRateChan0 + rampRateChan1) / 2) < 0)
+          setCursor(intLen((int)cToF((rampRateChan0 + rampRateChan1) / 2)) + 4, 2);
+        else
+          setCursor(intLen((int)cToF((rampRateChan0 + rampRateChan1) / 2)) + 3, 2);
         u8g2.print(cToF((rampRateChan0 + rampRateChan1) / 2));
       }
       setCursor(intLen((int)currentReflowSeconds), 3);
@@ -1406,6 +1413,8 @@ void loop()
             {
               writeTimeout = 10000;
               saved = false;
+            } else {
+              saved = true;
             }
             break;
           }
