@@ -27,7 +27,9 @@ You can use any USB to UART adapter to connect to this port. Note MCU TX will co
 
 The thermocouples will need to be replaced (the existing ones are glued in) and placed on the tray/PCBs for better thermal readouts (having them floating in the air with a black PCB can get the PCB up to 290 degrees Celsius). In the firmware, TC0 corresponds to the back two elements and TC1 corresponds to the front two (the back and front elements are individually controlled). Try to situate the thermocouples in the center of the elements on a sacrificial PCB or the PCB you are firing. If you aren't using a zone, just leave it where it is in the center of those elements. More info [here](https://hackaday.io/project/167324-brtro-420-better-blazin-mod/log/170604-getting-baked-gets-you-routed). Please note, some metal shielded thermocouples ground the tip to the shield, if you use these and you get GND error, you need to change the thermocouple type or disconnect the tip from the shield somehow.
 
-The Arduino board files are based on the Mattairtech Xeno Mini SAMC (ATSAMC21G18A) supported firmware here - https://github.com/mattairtech/ArduinoCore-samd . The easiest way to get it working is to load the Mattairtech board, then replace the installed board files with the ones from the mod zip in this repo. I will get something more streamlined if there is any demand, but should get you up and running
+The Arduino board files are based on the Mattairtech Xeno Mini SAMC (ATSAMC21G18A) supported firmware here - https://github.com/mattairtech/ArduinoCore-samd . The easiest way to get it working is to load the Mattairtech board, then replace the installed board files with the ones from the mod zip in this repo. I will get something more streamlined if there is any demand, but should get you up and running.
+
+Please note, when reprogramming firmware, all flash variable storage will be erased. So be sure to take note of your settings before reprogramming.
 
 While gerbers are supplied in the repo, you can also use this link to order from OSHPark - https://oshpark.com/shared_projects/09GEIudS
 
