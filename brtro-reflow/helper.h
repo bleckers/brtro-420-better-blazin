@@ -40,8 +40,6 @@
 #define EXHAUST OT3
 #define CONVECTION    OT4
 
-
-
 //TC1 is front (by default)
 //TC0 is back  (by default)
 
@@ -49,7 +47,6 @@
 //OT3 is fan
 //OT2 is front
 //OT1 is back
-
 
 //States
 #define PREHT 0
@@ -61,23 +58,9 @@
 #define IDLEM 6
 #define NONE 7
 
-struct ReflowProfile
-{
-
-  //Temp to reach
-  int PreHtTemp = 100;
-  int HeatTemp = 180;
-  int RefTemp = 240;
-  int RefKpTemp = 240;
-  int CoolTemp = 50;
-
-  //Seconds to try getting to temp
-  int PreHtTime = 80;
-  int HeatTime = 220; 
-  int RefTime = 30;
-  int RefKpTime = 30;
-  int CoolTime = 80;
-};
+#define BOOT_MAGIC_ADDRESS (0x20007FFCul)
+#define BOOT_MAGIC_VALUE (*((volatile uint32_t *)BOOT_MAGIC_ADDRESS))
+#define BOOT_MAGIC_BOOTLOADER_ENABLE 0x32
 
 void buzzer(int pin)
 {
@@ -87,6 +70,11 @@ void buzzer(int pin)
   noTone(pin);
 
   pinMode(pin, INPUT);
+}
+
+double cToF(double celsius)
+{
+  return ((double)1.8 * celsius) + 32;
 }
 
 double avg(double *array, uint8_t count)

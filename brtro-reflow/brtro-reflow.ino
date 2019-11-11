@@ -1,19 +1,11 @@
 #include "MAX31855soft.h" //https://github.com/enjoyneering/MAX31855
-//#include <openGLCD.h>
-//#include <U8x8lib.h>
 #include <U8g2lib.h>
 #include "splash.h"
 #include "helper.h"
 #include "FlashStorage.h"
 #include "PID_v1.h"
 #include "pidautotuner.h"
-
-//ReflowController project used as source of inspiration for PID control
-//https://github.com/0xPIT/reflowOvenController/blob/master/ReflowController/ReflowController.ino
-//
-
-// ----------------------------------------------------------------------------
-// PID
+#include "variables.h"
 
 double shouldBeTemp;
 
@@ -30,191 +22,44 @@ double SetpointChan1;
 double InputChan1;
 double OutputChan1;
 
-
-// ******************* DEFAULT PID PARAMETERS *******************
-// ***** PRE-HEAT STAGE *****
-#define PID_KP_PREHEAT_C0 40 //50.28 //
-#define PID_KI_PREHEAT_C0 0.025 //4.78 //
-#define PID_KD_PREHEAT_C0 20 //166.72 //
-
-#define PID_KP_PREHEAT_C1 40 //96.98 //
-#define PID_KI_PREHEAT_C1 0.025 //26.96 //
-#define PID_KD_PREHEAT_C1 20 //210.38 //
-
-// ***** SOAKING STAGE *****
-#define PID_KP_SOAK_C0 200 //97.00 //
-#define PID_KI_SOAK_C0 0.015 //25.97 //
-#define PID_KD_SOAK_C0 50 //168.54 //
-
-#define PID_KP_SOAK_C1 200 //44.30 //
-#define PID_KI_SOAK_C1 0.015 //6.56 //
-#define PID_KD_SOAK_C1 50 //201.32 //
-
-// ***** REFLOW STAGE *****
-#define PID_KP_REFLOW_C0 100 //38.12 //
-#define PID_KI_REFLOW_C0 0.025 //2.15 //
-#define PID_KD_REFLOW_C0 25 //200.13 //
-
-#define PID_KP_REFLOW_C1 100 //43.01 //
-#define PID_KI_REFLOW_C1 0.025 //6.73 //
-#define PID_KD_REFLOW_C1 25 //400.31 //
-
-typedef struct {
-  double Kp_PREHEAT;
-  double Ki_PREHEAT;
-  double Kd_PREHEAT;
-
-  double Kp_SOAK;
-  double Ki_SOAK;
-  double Kd_SOAK;
-
-  double Kp_REFLOW;
-  double Ki_REFLOW;
-  double Kd_REFLOW;
-} PID3_t;
-
-typedef struct {
-  double Kp;
-  double Ki;
-  double Kd;
-} PID_t;
-
 PID3_t heaterPIDChan0 = { PID_KP_PREHEAT_C0, PID_KI_PREHEAT_C0, PID_KD_PREHEAT_C0, PID_KP_SOAK_C0, PID_KI_SOAK_C0, PID_KD_SOAK_C0, PID_KP_REFLOW_C0, PID_KI_REFLOW_C0, PID_KD_REFLOW_C0 };
 PID3_t heaterPIDChan1 = { PID_KP_PREHEAT_C1, PID_KI_PREHEAT_C1, PID_KD_PREHEAT_C1, PID_KP_SOAK_C1, PID_KI_SOAK_C1, PID_KD_SOAK_C1, PID_KP_REFLOW_C1, PID_KI_REFLOW_C1, PID_KD_REFLOW_C1 };
 PID_t fanPID    = { 10.00, 0.03, 10.00 }; //{ 1.00, 0.03, 10.00 };
 
 PID PIDChan0(&InputChan0, &OutputChan0, &SetpointChan0, heaterPIDChan0.Kp_PREHEAT, heaterPIDChan0.Ki_PREHEAT, heaterPIDChan0.Kd_PREHEAT, DIRECT);
 
-/*PID_ATune PIDTuneChan0(&InputChan0, &OutputChan0);
-
-  double aTuneStepChan0       =  50,
-       aTuneNoiseChan0      =   1,
-       aTuneStartValueChan0 =  50; // is set to Output, i.e. 0-100% of Heater //90 will get set to 100 because of stepChan
-
-  unsigned int aTuneLookBackChan0 = 10; //Seconds*/
-
 PIDAutotuner tunerChan0 = PIDAutotuner();
 
 PID PIDChan1(&InputChan1, &OutputChan1, &SetpointChan1, heaterPIDChan1.Kp_PREHEAT, heaterPIDChan1.Ki_PREHEAT, heaterPIDChan1.Kd_PREHEAT, DIRECT);
 
-/*PID_ATune PIDTuneChan1(&InputChan1, &OutputChan1);
-
-  double aTuneStepChan1       =  50,
-       aTuneNoiseChan1      =   1,
-       aTuneStartValueChan1 =  50; // is set to Output, i.e. 0-100% of Heater
-
-  unsigned int aTuneLookBackChan1 = 10; //Seconds*/
-
 PIDAutotuner tunerChan1 = PIDAutotuner();
 
-#define MAX_PROFILES 9
+StoredVar storedVar;
 
 int currentState = IDLEM;
 
 double rampRateChan0 = 0;
 double rampRateChan1 = 0;
 
-U8G2_KS0108_128X64_F u8g2(U8G2_R0, DB0, DB1, DB2, DB3, DB4, DB5, DB6, DB7, /*enable=*/E, /*dc=*/DI, /*cs0=*/CS1, /*cs1=*/CS2, /*cs2=*/U8X8_PIN_NONE, /* reset=*/RST);
-U8G2LOG u8g2log;
-
-struct StoredVar
-{
-  bool valid;                //Should be false after new code write (to pull defaults)
-
-  double KpChan0_PREHEAT;
-  double KiChan0_PREHEAT;
-  double KdChan0_PREHEAT;
-  double KpChan1_PREHEAT;
-  double KiChan1_PREHEAT;
-  double KdChan1_PREHEAT;
-
-  double KpChan0_SOAK;
-  double KiChan0_SOAK;
-  double KdChan0_SOAK;
-  double KpChan1_SOAK;
-  double KiChan1_SOAK;
-  double KdChan1_SOAK;
-
-  double KpChan0_REFLOW;
-  double KiChan0_REFLOW;
-  double KdChan0_REFLOW;
-  double KpChan1_REFLOW;
-  double KiChan1_REFLOW;
-  double KdChan1_REFLOW;
-
-  bool celsiusMode;
-
-  uint8_t profile;
-  ReflowProfile profiles[MAX_PROFILES];
-} storedVar;
-
-bool saved = true;
-
-int errorTimeout = 0;
-
-void restoreDefaults()
-{
-  storedVar.profile = 1;
-
-  storedVar.KpChan0_PREHEAT = PID_KP_PREHEAT_C0;
-  storedVar.KiChan0_PREHEAT = PID_KI_PREHEAT_C0;
-  storedVar.KdChan0_PREHEAT = PID_KD_PREHEAT_C0;
-  storedVar.KpChan1_PREHEAT = PID_KP_PREHEAT_C1;
-  storedVar.KiChan1_PREHEAT = PID_KI_PREHEAT_C1;
-  storedVar.KdChan1_PREHEAT = PID_KD_PREHEAT_C1;
-
-  storedVar.KpChan0_SOAK = PID_KP_SOAK_C0;
-  storedVar.KiChan0_SOAK = PID_KI_SOAK_C0;
-  storedVar.KdChan0_SOAK = PID_KD_SOAK_C0;
-  storedVar.KpChan1_SOAK = PID_KP_SOAK_C1;
-  storedVar.KiChan1_SOAK = PID_KI_SOAK_C1;
-  storedVar.KdChan1_SOAK = PID_KD_SOAK_C1;
-
-  storedVar.KpChan0_REFLOW = PID_KP_REFLOW_C0;
-  storedVar.KiChan0_REFLOW = PID_KI_REFLOW_C0;
-  storedVar.KdChan0_REFLOW = PID_KD_REFLOW_C0;
-  storedVar.KpChan1_REFLOW = PID_KP_REFLOW_C1;
-  storedVar.KiChan1_REFLOW = PID_KI_REFLOW_C1;
-  storedVar.KdChan1_REFLOW = PID_KD_REFLOW_C1;
-  storedVar.valid = true;
-  storedVar.celsiusMode = true;
-
-  for (int i = 0; i < MAX_PROFILES; i++)
-  {
-
-    storedVar.profiles[i].PreHtTemp = 100;
-    storedVar.profiles[i].HeatTemp = 180;
-    storedVar.profiles[i].RefTemp = 240;
-    storedVar.profiles[i].RefKpTemp = 240;
-    storedVar.profiles[i].CoolTemp = 60;
-
-    storedVar.profiles[i].PreHtTime = 80;
-    storedVar.profiles[i].HeatTime = 180;
-    storedVar.profiles[i].RefTime = 60;
-    storedVar.profiles[i].RefKpTime = 30;
-    storedVar.profiles[i].CoolTime = 80;
-  }
-}
-
-int writeTimeout = -1;
-
-FlashStorage(storedVarFlash, StoredVar);
-
-// assume 4x6 font, define width and height
-#define U8LOG_WIDTH 32
-#define U8LOG_HEIGHT 1
-
 volatile int frontState = 0;
 volatile int backState = 0;
 volatile int convectionState = 0;
 volatile int exhaustState = 0;
 
-// allocate memory
+U8G2_KS0108_128X64_F u8g2(U8G2_R0, DB0, DB1, DB2, DB3, DB4, DB5, DB6, DB7, /*enable=*/E, /*dc=*/DI, /*cs0=*/CS1, /*cs1=*/CS2, /*cs2=*/U8X8_PIN_NONE, /* reset=*/RST);
+U8G2LOG u8g2log;
+// assume 4x6 font, define width and height
+#define U8LOG_WIDTH 32
+#define U8LOG_HEIGHT 1
 uint8_t u8log_buffer[U8LOG_WIDTH * U8LOG_HEIGHT];
 
-#define BOOT_MAGIC_ADDRESS (0x20007FFCul)
-#define BOOT_MAGIC_VALUE (*((volatile uint32_t *)BOOT_MAGIC_ADDRESS))
-#define BOOT_MAGIC_BOOTLOADER_ENABLE 0x32
+bool saved = true;
+
+int errorTimeout = 0;
+
+int writeTimeout = -1;
+
+FlashStorage(storedVarFlash, StoredVar);
 
 MAX31855soft MAX31855_0(CSU2, SO, SCK);
 MAX31855soft MAX31855_1(CSU3, SO, SCK);
@@ -228,8 +73,11 @@ int averagesCount = 0;
 
 int tempHistoryHead = 0;
 
-double tc0Temp; //Back
-double tc1Temp; //Front
+double tc0Temp; //Back by default
+double tc1Temp; //Front by default
+double backTemp;
+double frontTemp;
+int tcState = 0; //0 normal (Back == TC0, Front == TC1), 1 swapped (Back == TC1, Front == TC0)
 
 double tc0PrevTemp;
 double tc1PrevTemp;
@@ -273,10 +121,6 @@ unsigned long previousTimeReadTemp = 0;
 int enableMenu = 1;
 
 bool celsiusMode = true; //true is celcius, false is farenheit
-double cToF(double celsius)
-{
-  return ((double)1.8 * celsius) + 32;
-}
 
 int reflow = 0;
 unsigned long previousTimeReflowDisplayUpdate = 0;
@@ -297,10 +141,29 @@ uint32_t lastRampTicks;
 
 double startTemp = 0;
 
-bool profileValueChanged = false;
+bool valueChanged = false;
 int profileValueBeingEdited = 0;
 
 int previousSavedProfile;
+
+#define NUMBER_OF_CROSSINGS_AVERAGES 2
+
+volatile unsigned long previousCrossingTime;
+volatile unsigned long crossings[NUMBER_OF_CROSSINGS_AVERAGES] = {0};
+volatile int crossingsHead = 0;
+volatile double crossingAverage;
+
+int currentPIDEditSelection = 0;
+
+unsigned long pollRate = 1000;
+
+double previousRateDisplayTemp0 = 0;
+
+double previousRateDisplayTemp1 = 0;
+
+boolean tuning = false;
+
+boolean currentStateAutotuned = false;
 
 
 void plusPress()
@@ -320,13 +183,6 @@ void okPress()
   if (buttonStateOK == 0)
     buttonStateOK = buttonStateTimeout;
 }
-
-#define NUMBER_OF_CROSSINGS_AVERAGES 2
-
-volatile unsigned long previousCrossingTime;
-volatile unsigned long crossings[NUMBER_OF_CROSSINGS_AVERAGES] = {0};
-volatile int crossingsHead = 0;
-volatile double crossingAverage;
 
 void zeroCrossing()
 {
@@ -414,6 +270,8 @@ void loadSettings()
   heaterPIDChan1.Ki_REFLOW = storedVar.KiChan1_REFLOW;
   heaterPIDChan1.Kd_REFLOW = storedVar.KdChan1_REFLOW;
 
+  tcState = storedVar.tcState;
+
   celsiusMode = storedVar.celsiusMode;
 
   PIDChan0.SetTunings(heaterPIDChan0.Kp_PREHEAT, heaterPIDChan0.Ki_PREHEAT, heaterPIDChan0.Kd_PREHEAT);
@@ -441,19 +299,20 @@ void checkSerial()
     }
     else if (c == 'T') //Print Temps
     {
-      if (celsiusMode) Serial.print(tc0Temp);
-      else Serial.print(cToF(tc0Temp));
+      if (celsiusMode) Serial.print(backTemp);
+      else Serial.print(cToF(backTemp));
       Serial.print(",");
-      if (celsiusMode) Serial.print(tc1Temp);
-      else Serial.println(cToF(tc1Temp));
+      if (celsiusMode) Serial.print(frontTemp);
+      else Serial.println(cToF(frontTemp));
     }
   }
 }
 
 void setup()
 {
-  //Protect against bad code requiring ICSP flashing, do not remove
-  //This allows us to hold R on startup if we had a bad flash
+  /* \/ \/ \/ Keep below here \/ \/ \/ */
+  /* Protect against bad code requiring ICSP flashing, do not remove */
+  /* This allows us to hold R on startup if we had a bad flash */
   Serial.begin(115200);
   int countdown = 1000;
   while (countdown > 0)
@@ -462,27 +321,7 @@ void setup()
     countdown--;
     delay(1);
   }
-  //Keep above here
-
-  //System is too noisy for this to work.
-
-  /* Detect existing board running for 0.5s */
-  /*
-    attachInterrupt(digitalPinToInterrupt(DB5), otherRunningInterruptDB5, FALLING);
-    attachInterrupt(digitalPinToInterrupt(DB6), otherRunningInterruptDB6, FALLING);
-
-    int timeout = 20;
-    while (timeout > 0)
-    {
-    delay(10);
-    timeout--;
-    }
-
-    //if other board is running, go into loop
-    while (otherRunning == true) {}
-
-    detachInterrupt(digitalPinToInterrupt(DB5));
-    detachInterrupt(digitalPinToInterrupt(DB6));*/
+  /* /\ /\ /\ Keep above here /\ /\ /\ */
 
   pinMode(PLUS, INPUT);
   pinMode(MINUS, INPUT);
@@ -530,7 +369,7 @@ void setup()
   storedVar = storedVarFlash.read();
   if (storedVar.valid == false) //Should be false after new code write
   {
-    restoreDefaults();
+    restoreDefaults(&storedVar);
   }
 
   loadSettings();
@@ -650,8 +489,6 @@ void drawProfile()
   profileLine(profiles[currentProfile].RefKpTemp, profiles[currentProfile].CoolTemp, tempStart, tempStart + profiles[currentProfile].CoolTime);
 }
 
-int currentPIDEditSelection = 0;
-
 void drawMenu(int index)
 {
   switch (index)
@@ -674,10 +511,13 @@ void drawMenu(int index)
       u8g2.setCursor(107, 14);
       if (celsiusMode) u8g2.print("oC");
       else u8g2.print("oF");
-      u8g2.setCursor(105, 24);
-      u8g2.print("TC0"); //TODO placement of TC
-      u8g2.setCursor(105, 34);
-      u8g2.print("TC1");
+      u8g2.setCursor(97, 24);
+      if (tcState == 0)
+        u8g2.print("B:0,F:1");
+      else
+        u8g2.print("B:1,F:0");
+      u8g2.setCursor(99, 34);
+      u8g2.print("------");
       u8g2.setCursor(99, 44);
       u8g2.print("------");
       u8g2.setCursor(99, 57);
@@ -1051,14 +891,16 @@ void readTemps()
   tc0PrevTemp = tc0Temp;
   tc1PrevTemp = tc1Temp;
 
-  int32_t rawData = MAX31855_0.readRawData();
   if (averagesCount < NUMBER_OF_TEMP_AVERAGES) averagesCount++;
+  int32_t rawData;
 
+  rawData = MAX31855_0.readRawData();
   tc0Detect = MAX31855_0.detectThermocouple(rawData);
+
   if (tc0Detect == MAX31855_THERMOCOUPLE_OK)
   {
-    double tc0Value = (double)MAX31855_0.getTemperature(rawData);
-
+    double tc0Value;
+    tc0Value = (double)MAX31855_0.getTemperature(rawData);
     tc0History[tempHistoryHead] = tc0Value;
 
     tc0Temp = avg(tc0History, averagesCount);
@@ -1068,9 +910,13 @@ void readTemps()
 
   rawData = MAX31855_1.readRawData();
   tc1Detect = MAX31855_1.detectThermocouple(rawData);
+
+
   if (tc1Detect == MAX31855_THERMOCOUPLE_OK)
   {
-    double tc1Value = (double)MAX31855_1.getTemperature(rawData);
+    double tc1Value;
+
+    tc1Value = (double)MAX31855_1.getTemperature(rawData);
 
     tc1History[tempHistoryHead] = tc1Value;
 
@@ -1084,6 +930,17 @@ void readTemps()
   tempHistoryHead++;
   if (tempHistoryHead >= NUMBER_OF_TEMP_AVERAGES)
     tempHistoryHead = 0;
+
+  if (tcState == 0)
+  {
+    frontTemp = tc1Temp;
+    backTemp = tc0Temp;
+  }
+  else
+  {
+    frontTemp = tc0Temp;
+    backTemp = tc1Temp;
+  }
 }
 
 void updateTemps()
@@ -1101,6 +958,7 @@ void updateTemps()
     else
     {
       u8g2log.print("TC0:");
+
       if (tc0Temp < 100)
         u8g2log.print(" ");
 
@@ -1146,9 +1004,6 @@ void updateTemps()
   }
 }
 
-unsigned long pollRate = 1000;
-
-
 void disableReflow()
 {
   reflow = 0;
@@ -1157,30 +1012,21 @@ void disableReflow()
 
 }
 
-double previousRateDisplayTemp0 = 0;
-
-double previousRateDisplayTemp1 = 0;
-
-boolean tuning = false;
-
-boolean currentStateAutotuned = false;
-
 void startReflow()
 {
   reflowStartTime = millis();
   previousTempDisplayUpdate = 0;
   reflow = 1;
-  //if (currentState != TUNE)
   currentState = PREHT;
 
-  shouldBeTemp = (int)((tc0Temp + tc1Temp) / 2);
+  shouldBeTemp = (int)((backTemp + frontTemp) / 2);
   rampRateChan0 = 0;
   rampRateChan1 = 0;
 
 
-  previousRateDisplayTemp0 = tc0Temp;
+  previousRateDisplayTemp0 = backTemp;
 
-  previousRateDisplayTemp1 = tc1Temp;
+  previousRateDisplayTemp1 = frontTemp;
 
   pollRate = 200;
   PIDChan0.SetSampleTime(200);
@@ -1229,14 +1075,13 @@ void loop()
       {
         if (menuState == 2 && digitalRead(OK) == 0)
         {
-          delay(1); //noise reduction
+          delay(1); //noise reduction delay
           if (digitalRead(OK) == 0)
           {
-            //buzzer(SPK);
             buttonStateOK = 0;
             buttonStatePLUS = 0;
             buttonStateMINUS = 0;
-            profileValueChanged = true;
+            valueChanged = true;
             switch (profileValueBeingEdited)
             {
               case PREHT:
@@ -1280,14 +1125,13 @@ void loop()
         }
         else if (menuState == 4 && digitalRead(OK) == 0)
         {
-          delay(1); //noise reduction
+          delay(1); //noise reduction delay
           if (digitalRead(OK) == 0)
           {
-            //buzzer(SPK);
             buttonStateOK = 0;
             buttonStatePLUS = 0;
             buttonStateMINUS = 0;
-            profileValueChanged = true;
+            valueChanged = true;
             switch (profileValueBeingEdited)
             {
               case PREHT:
@@ -1355,7 +1199,7 @@ void loop()
             buttonStateOK = 0;
             buttonStatePLUS = 0;
             buttonStateMINUS = 0;
-            profileValueChanged = true;
+            valueChanged = true;
             switch (profileValueBeingEdited)
             {
               case PREHT:
@@ -1399,14 +1243,13 @@ void loop()
         }
         else if (menuState == 4 && digitalRead(OK) == 0)
         {
-          delay(1); //noise reduction
+          delay(1); //noise reduction delay
           if (digitalRead(OK) == 0)
           {
-            //buzzer(SPK);
             buttonStateOK = 0;
             buttonStatePLUS = 0;
             buttonStateMINUS = 0;
-            profileValueChanged = true;
+            valueChanged = true;
             switch (profileValueBeingEdited)
             {
               case PREHT:
@@ -1506,7 +1349,7 @@ void loop()
           }
         case 4: //Start
           {
-            if (tc1Temp < START_TEMP_MAX && tc0Temp < START_TEMP_MAX)
+            if (backTemp < START_TEMP_MAX && frontTemp < START_TEMP_MAX)
             {
               //TODO check for thermocouple
               drawProfile();
@@ -1663,8 +1506,6 @@ void loop()
       enableMenu = 1;
       currentMenuID = 0;
 
-
-
       if (tuning == true)
       {
         Serial.println("Tuning Cancelled");
@@ -1676,8 +1517,6 @@ void loop()
 
       if (tuning == true)
       {
-        //PIDTuneChan0.Cancel();
-        //PIDTuneChan1.Cancel();
         tuning = false;
       }
 
@@ -1701,14 +1540,13 @@ void loop()
     else if (currentMenuID == 5) //Editing a profile value
     {
       //Handled in plus/minus button
-
     }
     else if (currentMenuID == 3) //Tools Menu
     {
       switch (menuState)
       {
         case 0: //Tune
-          if (tc1Temp < START_TEMP_MAX && tc0Temp < START_TEMP_MAX)
+          if (backTemp < START_TEMP_MAX && frontTemp < START_TEMP_MAX)
           {
             if (tuning != true) { //Set the output to the desired starting frequency.
               Serial.println("");
@@ -1718,16 +1556,6 @@ void loop()
               Serial.println("");
               tuning = true;
               currentState = PREHT;
-
-              /*OutputChan0 = aTuneStartValueChan0;
-                PIDTuneChan0.SetNoiseBand(aTuneNoiseChan0);
-                PIDTuneChan0.SetOutputStep(aTuneStepChan0);
-                PIDTuneChan0.SetLookbackSec((int)aTuneLookBackChan0);
-
-                OutputChan1 = aTuneStartValueChan1;
-                PIDTuneChan1.SetNoiseBand(aTuneNoiseChan1);
-                PIDTuneChan1.SetOutputStep(aTuneStepChan1);
-                PIDTuneChan1.SetLookbackSec((int)aTuneLookBackChan1);*/
 
               secondsMillisStartChan0 = millis();
               secondsMillisStartChan1 = millis();
@@ -1753,12 +1581,10 @@ void loop()
           break;
         case 3: //Reset
           {
-            restoreDefaults();
+            restoreDefaults(&storedVar);
             loadSettings();
             saved = false;
             writeTimeout = 1000;
-            //u8g2log.print("\fSettings Restored");
-            //printError();
           }
       }
     }
@@ -1772,40 +1598,32 @@ void loop()
           if (frontState == 0) //Turn on
           {
             frontState = 1;
-            //digitalWrite(FRONT_HEATER, 0);
           } else {
             frontState = 0;
-            //digitalWrite(FRONT_HEATER, 1);
           }
           break;
         case 1: //Back
           if (backState == 0) //Turn on
           {
             backState = 1;
-            //digitalWrite(BACK_HEATER, 0);
           } else {
             backState = 0;
-            //digitalWrite(BACK_HEATER, 1);
           }
           break;
         case 2: //Stir
           if (convectionState == 0) //Turn on
           {
             convectionState = 1;
-            //digitalWrite(CONVECTION, 0);
           } else {
             convectionState = 0;
-            //digitalWrite(CONVECTION, 1);
           }
           break;
         case 3: //Vent
           if (exhaustState == 0) //Turn on
           {
             exhaustState = 1;
-            //digitalWrite(EXHAUST, 0);
           } else {
             exhaustState = 0;
-            //digitalWrite(EXHAUST, 1);
           }
           break;
       }
@@ -1836,9 +1654,12 @@ void loop()
 
         case 0: //Temp units
           celsiusMode = !celsiusMode;
-          storedVar.celsiusMode = celsiusMode;
-          saved = false;
-          writeTimeout = 1000;
+          valueChanged = true;
+          break;
+        case 1: //TC Change
+          if (tcState == 0) tcState = 1;
+          else tcState = 0;
+          valueChanged = true;
           break;
       }
     }
@@ -1857,15 +1678,32 @@ void loop()
     {
       case 1: //Config
         currentMenuID = 0;
+        if (valueChanged)
+        {
+          if (storedVar.celsiusMode != celsiusMode)
+          {
+            storedVar.celsiusMode = celsiusMode;
+            saved = false;
+            writeTimeout = 1000;
+          }
+
+          if (storedVar.tcState != tcState)
+          {
+            storedVar.tcState = tcState;
+            saved = false;
+            writeTimeout = 1000;
+          }
+
+        }
+        valueChanged = false;
         break;
       case 2: //Profile
         currentMenuID = 0;
-        if (profileValueChanged)
+        if (valueChanged)
         {
           //Save Values
           for (int i = 0; i < MAX_PROFILES; i++)
           {
-
             storedVar.profiles[i].PreHtTemp = profiles[i + 1].PreHtTemp;
             storedVar.profiles[i].HeatTemp = profiles[i + 1].HeatTemp;
             storedVar.profiles[i].RefTemp = profiles[i + 1].RefTemp;
@@ -1882,7 +1720,7 @@ void loop()
           writeTimeout = 1000;
         }
 
-        profileValueChanged = false;
+        valueChanged = false;
         break;
       case 3: //Tools
         currentMenuID = 0;
@@ -1903,8 +1741,6 @@ void loop()
 
         if (tuning)
         {
-          //PIDTuneChan0.Cancel();
-          //PIDTuneChan1.Cancel();
           tuning = false;
         }
 
@@ -1923,10 +1759,6 @@ void loop()
       case 6: //Testing outputs
         currentMenuID = 3;
         /* Disable outputs */
-        /*digitalWrite(FRONT_HEATER, 1);
-          digitalWrite(BACK_HEATER, 1);
-          digitalWrite(CONVECTION, 1);
-          digitalWrite(EXHAUST, 1);*/
         exhaustState = 0;
         frontState = 0;
         backState = 0;
@@ -1974,7 +1806,7 @@ void loop()
     if ((currentReflowSeconds % 5) == 0)
     {
       previousTempDisplayUpdate = currentReflowSeconds;
-      drawCurrentTemp((tc1Temp + tc0Temp) / 2, currentReflowSeconds);
+      drawCurrentTemp((backTemp + frontTemp) / 2, currentReflowSeconds);
     }
   }
 
@@ -1992,10 +1824,6 @@ void loop()
 
       switch (currentState)
       {
-        /*case TUNE: {
-            Serial.print("Tune,");
-            break;
-          }*/
         case PREHT:
           {
             Serial.print("PreHt,");
@@ -2028,16 +1856,16 @@ void loop()
       if (celsiusMode) Serial.print(shouldBeTemp);
       else Serial.print(cToF(shouldBeTemp));
       Serial.print(",");
-      if (celsiusMode) Serial.print(tc0Temp);
-      else Serial.print(cToF(tc0Temp));
+      if (celsiusMode) Serial.print(backTemp);
+      else Serial.print(cToF(backTemp));
       Serial.print(",");
       if (celsiusMode) Serial.print(rampRateChan0);
       else Serial.print(cToF(rampRateChan0));
       Serial.print(",");
       Serial.print(OutputChan0);
       Serial.print(",");
-      if (celsiusMode) Serial.print(tc1Temp);
-      else Serial.print(cToF(tc1Temp));
+      if (celsiusMode) Serial.print(frontTemp);
+      else Serial.print(cToF(frontTemp));
       Serial.print(",");
       if (celsiusMode) Serial.print(rampRateChan1);
       else Serial.print(cToF(rampRateChan1));
@@ -2058,16 +1886,16 @@ void loop()
 
     // calculate rate of temperature change (degree per second)
 
-    rampRateChan0 = (tc0Temp - previousRateDisplayTemp0) * 1000 / (currentTempLoopMillis - prevTempLoopMillis);
-    rampRateChan1 = (tc1Temp - previousRateDisplayTemp1) * 1000 / (currentTempLoopMillis - prevTempLoopMillis);
+    rampRateChan0 = (backTemp - previousRateDisplayTemp0) * 1000 / (currentTempLoopMillis - prevTempLoopMillis);
+    rampRateChan1 = (frontTemp - previousRateDisplayTemp1) * 1000 / (currentTempLoopMillis - prevTempLoopMillis);
 
-    previousRateDisplayTemp0 = tc0Temp;
+    previousRateDisplayTemp0 = backTemp;
 
-    previousRateDisplayTemp1 = tc1Temp;
+    previousRateDisplayTemp1 = frontTemp;
 
-    InputChan0 = tc0Temp; // update the variable the PID reads
+    InputChan0 = backTemp; // update the variable the PID reads
 
-    InputChan1 = tc1Temp; // update the variable the PID reads
+    InputChan1 = frontTemp; // update the variable the PID reads
 
     if (currentReflowSeconds > 1000) //16 minute safety timer
     {
@@ -2093,16 +1921,16 @@ void loop()
             PIDChan0.SetMode(AUTOMATIC);
             PIDChan0.SetControllerDirection(DIRECT);
             PIDChan0.SetTunings(heaterPIDChan0.Kp_PREHEAT, heaterPIDChan0.Ki_PREHEAT, heaterPIDChan0.Kd_PREHEAT);
-            SetpointChan0 = tc0Temp;
+            SetpointChan0 = backTemp;
 
             //if (!tuning) OutputChan1 = 80;
             OutputChan1 = 80;
             PIDChan1.SetMode(AUTOMATIC);
             PIDChan1.SetControllerDirection(DIRECT);
             PIDChan1.SetTunings(heaterPIDChan1.Kp_PREHEAT, heaterPIDChan1.Ki_PREHEAT, heaterPIDChan1.Kd_PREHEAT);
-            SetpointChan1 = tc1Temp;
+            SetpointChan1 = frontTemp;
 
-            startTemp = (tc0Temp + tc1Temp) / 2;
+            startTemp = (backTemp + frontTemp) / 2;
             startStateMillis = currentTime;
 
             previousRateDisplayTemp0 = 0;
@@ -2164,22 +1992,12 @@ void loop()
           }
 
           if (tuning) {
-            //PIDTuneChan0.setpoint = shouldBeTemp;
-            //PIDTuneChan1.setpoint = shouldBeTemp;
-            //int8_t val0 = PIDTuneChan0.Runtime();
-            //int8_t val1 = PIDTuneChan1.Runtime();
 
             tunerChan0.setTargetInputValue(shouldBeTemp);
             tunerChan1.setTargetInputValue(shouldBeTemp);
 
             OutputChan0 = tunerChan0.tunePID(InputChan0);
             OutputChan1 = tunerChan1.tunePID(InputChan1);
-
-            /*if (currentStateAutotuned)
-              {
-              OutputChan0 = 100;
-              OutputChan1 = 100;
-              }*/
 
             if (tunerChan0.isFinished() && tunerChan1.isFinished() && !currentStateAutotuned) {
               currentStateAutotuned = true;
@@ -2227,14 +2045,9 @@ void loop()
 
             }
 
-            /* //Get to next temp range before tuning further
-              if (tc0Temp > profiles[currentProfile].PreHtTemp - 1 && tc1Temp > profiles[currentProfile].PreHtTemp - 1 && currentStateAutotuned) {
-               currentState = HEAT;
-              }*/
-
           } else {
 
-            if (tc0Temp > profiles[currentProfile].PreHtTemp - 1 && tc1Temp > profiles[currentProfile].PreHtTemp - 1) {
+            if (backTemp > profiles[currentProfile].PreHtTemp - 1 && frontTemp > profiles[currentProfile].PreHtTemp - 1) {
               currentState = HEAT;
             }
           }
@@ -2249,9 +2062,9 @@ void loop()
 
             currentStateAutotuned = false;
 
-            SetpointChan0 = tc0Temp;
+            SetpointChan0 = backTemp;
 
-            SetpointChan1 = tc1Temp;
+            SetpointChan1 = frontTemp;
 
             PIDChan0.SetTunings(heaterPIDChan0.Kp_SOAK, heaterPIDChan0.Ki_SOAK, heaterPIDChan0.Kd_SOAK);
             PIDChan1.SetTunings(heaterPIDChan1.Kp_SOAK, heaterPIDChan1.Ki_SOAK, heaterPIDChan1.Kd_SOAK);
@@ -2265,7 +2078,7 @@ void loop()
               tunerChan1.startTuningLoop();
             }
 
-            startTemp = (tc0Temp + tc1Temp) / 2;
+            startTemp = (backTemp + frontTemp) / 2;
             startStateMillis = currentTime;
 
           }
@@ -2298,12 +2111,6 @@ void loop()
 
             OutputChan0 = tunerChan0.tunePID(InputChan0);
             OutputChan1 = tunerChan1.tunePID(InputChan1);
-
-            /*if (currentStateAutotuned)
-            {
-              OutputChan0 = 100;
-              OutputChan1 = 100;
-            }*/
 
             if (tunerChan0.isFinished() && tunerChan1.isFinished() && !currentStateAutotuned) {
 
@@ -2355,14 +2162,9 @@ void loop()
 
             }
 
-            /*//Get to next temp range before tuning further
-              if (tc0Temp >= profiles[currentProfile].HeatTemp - 1 && tc1Temp >= profiles[currentProfile].HeatTemp - 1 && currentStateAutotuned) {
-              currentState = REF;
-              }*/
-
           } else {
 
-            if (tc0Temp >= profiles[currentProfile].HeatTemp - 1 && tc1Temp >= profiles[currentProfile].HeatTemp - 1) {
+            if (backTemp >= profiles[currentProfile].HeatTemp - 1 && frontTemp >= profiles[currentProfile].HeatTemp - 1) {
               currentState = REF;
             }
           }
@@ -2374,9 +2176,9 @@ void loop()
           if (currentState != previousState) { //State changed
             convectionState = 1;
 
-            SetpointChan0 = tc0Temp;
+            SetpointChan0 = backTemp;
 
-            SetpointChan1 = tc1Temp;
+            SetpointChan1 = frontTemp;
 
             PIDChan0.SetTunings(heaterPIDChan0.Kp_REFLOW, heaterPIDChan0.Ki_REFLOW, heaterPIDChan0.Kd_REFLOW);
             PIDChan1.SetTunings(heaterPIDChan1.Kp_REFLOW, heaterPIDChan1.Ki_REFLOW, heaterPIDChan1.Kd_REFLOW);
@@ -2390,7 +2192,7 @@ void loop()
               tunerChan1.startTuningLoop();
             }
 
-            startTemp = (tc0Temp + tc1Temp) / 2;
+            startTemp = (backTemp + frontTemp) / 2;
             startStateMillis = currentTime;
 
           }
@@ -2423,12 +2225,6 @@ void loop()
 
             OutputChan0 = tunerChan0.tunePID(InputChan0);
             OutputChan1 = tunerChan1.tunePID(InputChan1);
-
-            /*if (currentStateAutotuned)
-            {
-              OutputChan0 = 100;
-              OutputChan1 = 100;
-            }*/
 
             if (tunerChan0.isFinished() && tunerChan1.isFinished()) {
               currentState = IDLEM; //Go straight to idle as we aren't going to tune refkp or cool
@@ -2496,7 +2292,7 @@ void loop()
 
           } else {
 
-            if (tc0Temp >= profiles[currentProfile].RefTemp - 2 && tc1Temp >= profiles[currentProfile].RefTemp - 2 ) {
+            if (backTemp >= profiles[currentProfile].RefTemp - 2 && frontTemp >= profiles[currentProfile].RefTemp - 2 ) {
               currentState = REFKP;
             }
           }
@@ -2515,39 +2311,12 @@ void loop()
             PIDChan0.SetTunings(heaterPIDChan0.Kp_REFLOW, heaterPIDChan0.Ki_REFLOW, heaterPIDChan0.Kd_REFLOW);
             PIDChan1.SetTunings(heaterPIDChan1.Kp_REFLOW, heaterPIDChan1.Ki_REFLOW, heaterPIDChan1.Kd_REFLOW);
 
-            /*if (tuning)
-              {
-              tunerChan0.setTargetInputValue(profiles[currentProfile].RefKpTemp);
-              tunerChan1.setTargetInputValue(profiles[currentProfile].RefKpTemp);
-
-              tunerChan0.startTuningLoop();
-              tunerChan1.startTuningLoop();
-              }*/
-
-            startTemp = (tc0Temp + tc1Temp) / 2;
+            startTemp = (backTemp + frontTemp) / 2;
             startStateMillis = currentTime;
 
           }
           previousState = currentState;
 
-          /*if (tuning) {
-            tunerChan0.setTargetInputValue(profiles[currentProfile].RefKpTemp);
-            tunerChan1.setTargetInputValue(profiles[currentProfile].RefKpTemp);
-
-            OutputChan0 = tunerChan0.tunePID(InputChan0);
-            OutputChan1 = tunerChan1.tunePID(InputChan1);
-
-            if (tunerChan0.isFinished() && tunerChan1.isFinished())
-            {
-
-              Serial.println("Tuning Complete");
-              u8g2log.print("\fTuning Complete");
-              writeTimeout = 1000;
-              saved = false;
-              currentState = IDLEM; //Go straight to idle as we aren't going to tune refkp or cool
-
-            }*/
-          // } else
           if (abs((currentTime - startStateMillis) / 1000) >= (unsigned int)profiles[currentProfile].RefKpTime) {
             currentState = COOL;
           }
@@ -2563,17 +2332,17 @@ void loop()
 
             PIDChan0.SetControllerDirection(REVERSE);
             PIDChan0.SetTunings(fanPID.Kp, fanPID.Ki, fanPID.Kd);
-            SetpointChan0 = tc0Temp;
+            SetpointChan0 = backTemp;
 
             PIDChan1.SetControllerDirection(REVERSE);
             PIDChan1.SetTunings(fanPID.Kp, fanPID.Ki, fanPID.Kd);
-            SetpointChan1 = tc1Temp;
+            SetpointChan1 = frontTemp;
 
             //Start fan up full so it doesn't have to catch up with PID on initial state change
             OutputChan0 = 100;
             OutputChan1 = 100;
 
-            startTemp = (tc0Temp + tc1Temp) / 2;
+            startTemp = (backTemp + frontTemp) / 2;
 
             startStateMillis = currentTime;
           }
@@ -2592,7 +2361,7 @@ void loop()
           SetpointChan0 = shouldBeTemp;
           SetpointChan1 = shouldBeTemp;
 
-          if (tc0Temp <= profiles[currentProfile].CoolTemp + 2 || tc1Temp <= profiles[currentProfile].CoolTemp + 2 ) {
+          if (backTemp <= profiles[currentProfile].CoolTemp + 2 || frontTemp <= profiles[currentProfile].CoolTemp + 2 ) {
             PIDChan0.SetMode(MANUAL);
             PIDChan1.SetMode(MANUAL);
             currentState = IDLEM;
@@ -2623,19 +2392,11 @@ void loop()
 
           //If temp over 50 and IDLE, enable fan
 
-          if (tc1Temp > START_TEMP_MAX || tc0Temp > START_TEMP_MAX)
+          if (backTemp > START_TEMP_MAX || frontTemp > START_TEMP_MAX)
           {
             OutputChan0 = 100;
             OutputChan1 = 100;
-            /*if (tc1Temp > 80 || tc0Temp > 80) //If greater than 80 degrees
-              {
-              OutputChan0 = 100;
-              OutputChan1 = 100;
-              } else {
-              OutputChan0 = 50;
-              OutputChan1 = 50;
-              }*/
-          } else if (tc1Temp < START_TEMP_MAX - 10 && tc0Temp < START_TEMP_MAX - 10) { //10 degree hysteresis
+          } else if (backTemp < START_TEMP_MAX - 10 && frontTemp < START_TEMP_MAX - 10) { //10 degree hysteresis
             OutputChan0 = 0;
             OutputChan1 = 0;
           }
