@@ -35,8 +35,8 @@
 #define MINUS BT2
 #define PLUS BT1
 
-#define FRONT_HEATER OT1 
-#define BACK_HEATER OT2 
+#define FRONT_HEATER OT1
+#define BACK_HEATER OT2
 #define EXHAUST OT3
 #define CONVECTION    OT4
 
@@ -70,6 +70,22 @@ void buzzer(int pin)
   noTone(pin);
 
   pinMode(pin, INPUT);
+}
+
+int intLen(int n) {
+  unsigned int number_of_digits = 0;
+  bool negative = false;
+  if (n < 0) negative = true;
+
+  do {
+    ++number_of_digits;
+    n /= 10;
+  } while (n);
+
+  if (negative)
+    return number_of_digits + 1;
+
+  return number_of_digits;
 }
 
 double cToF(double celsius)

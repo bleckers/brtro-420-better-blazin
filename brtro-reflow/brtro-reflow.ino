@@ -489,123 +489,161 @@ void drawProfile()
   profileLine(profiles[currentProfile].RefKpTemp, profiles[currentProfile].CoolTemp, tempStart, tempStart + profiles[currentProfile].CoolTime);
 }
 
+void setCursor(int numChars, int lineNumber)
+{
+  int y = 14;
+  switch (lineNumber)
+  {
+    case 0: y = 14; break;
+    case 1: y = 24; break;
+    case 2: y = 34; break;
+    case 3: y = 44; break;
+    case 4: y = 57; break;
+  }
+
+  //Pixels 94 - 128
+  int x = 0;
+  switch (numChars)
+  {
+    case 1: x = 109; break;
+    case 2: x = 107; break;
+    case 3: x = 105; break;
+    case 4: x = 103; break;
+    case 5: x = 101; break;
+    case 6: x = 99; break;
+    case 7: x = 97; break;
+    case 8: x = 95; break;
+  }
+
+  u8g2.setCursor(x, y);
+}
+
 void drawMenu(int index)
 {
   switch (index)
   {
     default: //Goto main menu
     case 0: //Main Menu
-      u8g2.setCursor(99, 14);
+      setCursor(6, 0);
       u8g2.print("Config");
-      u8g2.setCursor(99, 24);
+      setCursor(6, 1);
       u8g2.print("Prof ");
       u8g2.print(currentProfile);
-      u8g2.setCursor(97, 34);
+      setCursor(7, 2);
       u8g2.print("Profile");
-      u8g2.setCursor(101, 44);
+      setCursor(5, 3);
       u8g2.print("Tools");
-      u8g2.setCursor(101, 57);
+      setCursor(5, 4);
       u8g2.print("Start");
       break;
     case 1: //Config Menu
-      u8g2.setCursor(107, 14);
+      setCursor(2, 0);
       if (celsiusMode) u8g2.print("oC");
       else u8g2.print("oF");
-      u8g2.setCursor(97, 24);
+      setCursor(7, 1);
       if (tcState == 0)
         u8g2.print("B:0,F:1");
       else if (tcState == 1)
         u8g2.print("B:1,F:0");
       else if (tcState == 2)
         u8g2.print("B:A,F:A");
-      u8g2.setCursor(99, 34);
+      setCursor(6, 2);
       u8g2.print("------");
-      u8g2.setCursor(99, 44);
+      setCursor(6, 2);
       u8g2.print("------");
-      u8g2.setCursor(99, 57);
+      setCursor(6, 2);
       u8g2.print("------");
       break;
     case 2: //Profile Menu
-      u8g2.setCursor(101, 14);
+      setCursor(5, 0);
       u8g2.print("PreHt");
-      u8g2.setCursor(103, 24);
+      setCursor(4, 1);
       u8g2.print("Heat");
-      u8g2.setCursor(105, 34);
+      setCursor(3, 2);
       u8g2.print("Ref");
-      u8g2.setCursor(101, 44);
+      setCursor(5, 3);
       u8g2.print("RefKp");
-      u8g2.setCursor(103, 57);
+      setCursor(4, 4);
       u8g2.print("Cool");
       break;
     case 3: //Tools Menu
-      u8g2.setCursor(103, 14);
+      setCursor(4, 0);
       u8g2.print("Tune");
-      u8g2.setCursor(105, 24);
+      setCursor(3, 1);
       u8g2.print("PID");
-      u8g2.setCursor(97, 34);
+      setCursor(7, 2);
       u8g2.print("TestOut");
-      u8g2.setCursor(101, 44);
+      setCursor(5, 3);
       u8g2.print("Reset");
-      u8g2.setCursor(99, 57);
+      setCursor(6, 4);
       u8g2.print("------");
       break;
     case 4: //Start Has been Pressed
 
       switch (currentState)
       {
-        /*case TUNE: {
-            u8g2.setCursor(103, 14);
-            u8g2.print("Tune");
-            break;
-          }*/
         case PREHT:
           {
-            u8g2.setCursor(101, 14);
+            setCursor(5, 0);
             u8g2.print("PreHt");
             break;
           }
         case HEAT:
           {
-            u8g2.setCursor(103, 14);
+            setCursor(4, 0);
             u8g2.print("Heat");
             break;
           }
         case REF:
           {
-            u8g2.setCursor(105, 14);
+            setCursor(3, 0);
             u8g2.print("Ref");
             break;
           }
         case REFKP:
           {
-            u8g2.setCursor(101, 14);
+            setCursor(5, 0);
             u8g2.print("RefKp");
             break;
           }
         case COOL:
           {
-            u8g2.setCursor(103, 14);
+            setCursor(4, 0);
             u8g2.print("Cool");
             break;
           }
         default:
         case IDLEM:
           {
-            u8g2.setCursor(103, 14);
+            setCursor(4, 0);
             u8g2.print("Idle");
             break;
           }
       }
 
-      u8g2.setCursor(101, 24);
-      if (celsiusMode) u8g2.print((int)shouldBeTemp);
-      else u8g2.print((int)cToF(shouldBeTemp));
-      u8g2.setCursor(101, 34);
-      if (celsiusMode) u8g2.print((rampRateChan0 + rampRateChan1) / 2);
-      else u8g2.print(cToF((rampRateChan0 + rampRateChan1) / 2));
-      u8g2.setCursor(105, 44);
+      if (celsiusMode)
+      {
+        setCursor(intLen((int)shouldBeTemp), 1);
+        u8g2.print((int)shouldBeTemp);
+      }
+      else
+      {
+        setCursor(intLen((int)cToF(shouldBeTemp)), 1);
+        u8g2.print((int)cToF(shouldBeTemp));
+      }
+
+      if (celsiusMode) {
+        setCursor(intLen((int)(rampRateChan0 + rampRateChan1) / 2) + 3, 2);
+        u8g2.print((rampRateChan0 + rampRateChan1) / 2);
+      }
+      else
+      {
+        setCursor(intLen((int)cToF((rampRateChan0 + rampRateChan1) / 2)) + 3, 2);
+        u8g2.print(cToF((rampRateChan0 + rampRateChan1) / 2));
+      }
+      setCursor(intLen((int)currentReflowSeconds), 3);
       u8g2.print(currentReflowSeconds); //Degrees per second
-      u8g2.setCursor(103, 57);
+      setCursor(4, 4);
       u8g2.print("Stop");
       break;
 
@@ -615,181 +653,209 @@ void drawMenu(int index)
       {
         case PREHT:
           {
-            u8g2.setCursor(101, 14);
+            setCursor(5, 0);
             u8g2.print("PreHt");
-            u8g2.setCursor(99, 24);
+            setCursor(4, 1);
             u8g2.print("Temp");
-            u8g2.setCursor(99, 34);
-            if (celsiusMode) u8g2.print(profiles[currentProfile].PreHtTemp);
-            else  u8g2.print(cToF(profiles[currentProfile].PreHtTemp));
-            u8g2.setCursor(99, 44);
+
+            if (celsiusMode)
+            {
+              setCursor(intLen(profiles[currentProfile].PreHtTemp), 2);
+              u8g2.print(profiles[currentProfile].PreHtTemp);
+            }
+            else  {
+              setCursor(intLen(profiles[currentProfile].PreHtTemp), 2);
+              u8g2.print(cToF(profiles[currentProfile].PreHtTemp));
+            }
+            setCursor(7, 3);
             u8g2.print("Seconds");
-            u8g2.setCursor(99, 57);
+            setCursor(intLen(profiles[currentProfile].PreHtTime), 4);
             u8g2.print(profiles[currentProfile].PreHtTime);
             break;
           }
         case HEAT:
           {
-            u8g2.setCursor(103, 14);
+            setCursor(4, 0);
             u8g2.print("Heat");
-            u8g2.setCursor(99, 24);
+            setCursor(4, 1);
             u8g2.print("Temp");
-            u8g2.setCursor(99, 34);
-            if (celsiusMode) u8g2.print(profiles[currentProfile].HeatTemp);
-            else u8g2.print(cToF(profiles[currentProfile].HeatTemp));
-            u8g2.print(profiles[currentProfile].HeatTemp);
-            u8g2.setCursor(99, 44);
+
+            if (celsiusMode) {
+              setCursor(intLen(profiles[currentProfile].HeatTemp), 2);
+              u8g2.print(profiles[currentProfile].HeatTemp);
+            }
+            else {
+              setCursor(intLen(cToF(profiles[currentProfile].HeatTemp)), 2);
+              u8g2.print(cToF(profiles[currentProfile].HeatTemp));
+            }
+            setCursor(7, 3);
             u8g2.print("Seconds");
-            u8g2.setCursor(99, 57);
+            setCursor(intLen(profiles[currentProfile].HeatTime), 4);
             u8g2.print(profiles[currentProfile].HeatTime);
             break;
           }
         case REF:
           {
-            u8g2.setCursor(105, 14);
+            setCursor(3, 0);
             u8g2.print("Ref");
-            u8g2.setCursor(99, 24);
+            setCursor(4, 1);
             u8g2.print("Temp");
-            u8g2.setCursor(99, 34);
-            if (celsiusMode) u8g2.print(profiles[currentProfile].RefTemp);
-            else u8g2.print(cToF(profiles[currentProfile].RefTemp));
-            u8g2.setCursor(99, 44);
+            if (celsiusMode) {
+              setCursor(intLen(profiles[currentProfile].RefTemp), 2);
+              u8g2.print(profiles[currentProfile].RefTemp);
+            }
+            else {
+              setCursor(intLen(cToF(profiles[currentProfile].RefTemp)), 2);
+              u8g2.print(cToF(profiles[currentProfile].RefTemp));
+            }
+            setCursor(7, 3);
             u8g2.print("Seconds");
-            u8g2.setCursor(99, 57);
+            setCursor(intLen(profiles[currentProfile].RefTime), 4);
             u8g2.print(profiles[currentProfile].RefTime);
             break;
           }
         case REFKP:
           {
-            u8g2.setCursor(101, 14);
+            setCursor(5, 0);
             u8g2.print("RefKp");
-            u8g2.setCursor(99, 24);
+            setCursor(4, 1);
             u8g2.print("Temp");
-            u8g2.setCursor(99, 34);
-            if (celsiusMode) u8g2.print(profiles[currentProfile].RefKpTemp);
-            else u8g2.print(cToF(profiles[currentProfile].RefKpTemp));
-            u8g2.setCursor(99, 44);
+            if (celsiusMode) {
+              setCursor(intLen(profiles[currentProfile].RefKpTemp), 2);
+              u8g2.print(profiles[currentProfile].RefKpTemp);
+            }
+            else {
+              setCursor(intLen(cToF(profiles[currentProfile].RefKpTemp)), 2);
+              u8g2.print(cToF(profiles[currentProfile].RefKpTemp));
+            }
+            setCursor(7, 3);
             u8g2.print("Seconds");
-            u8g2.setCursor(99, 57);
+            setCursor(intLen(profiles[currentProfile].RefKpTime), 4);
             u8g2.print(profiles[currentProfile].RefKpTime);
             break;
           }
         case COOL:
           {
-            u8g2.setCursor(103, 14);
+            setCursor(4, 0);
             u8g2.print("Cool");
-            u8g2.setCursor(99, 24);
+            setCursor(4, 1);
             u8g2.print("Temp");
-            u8g2.setCursor(99, 34);
-            if (celsiusMode) u8g2.print(profiles[currentProfile].CoolTemp);
-            else u8g2.print(cToF(profiles[currentProfile].CoolTemp));
-            u8g2.setCursor(99, 44);
+            if (celsiusMode) {
+              setCursor(intLen(profiles[currentProfile].CoolTemp), 2);
+              u8g2.print(profiles[currentProfile].CoolTemp);
+            }
+            else {
+              setCursor(intLen(cToF(profiles[currentProfile].CoolTemp)), 2);
+              u8g2.print(cToF(profiles[currentProfile].CoolTemp));
+            }
+            setCursor(7, 3);
             u8g2.print("Seconds");
-            u8g2.setCursor(99, 57);
+            setCursor(intLen(profiles[currentProfile].CoolTime), 4);
             u8g2.print(profiles[currentProfile].CoolTime);
             break;
           }
       }
       break;
     case 6: //Test
-      u8g2.setCursor(101, 14);
+      setCursor(5, 0);
       u8g2.print("Front");
-      u8g2.setCursor(99, 24);
+      setCursor(4, 1);
       u8g2.print("Back");
-      u8g2.setCursor(99, 34);
+      setCursor(4, 2);
       u8g2.print("Stir");
-      u8g2.setCursor(99, 44);
+      setCursor(4, 3);
       u8g2.print("Vent");
-      u8g2.setCursor(99, 57);
+      setCursor(6, 4);
       u8g2.print("------");
       break;
 
     case 7: //PID
       if (currentPIDEditSelection == 1) {
-        u8g2.setCursor(101, 14);
+        setCursor(5, 0);
         u8g2.print("C1_PH");
-        u8g2.setCursor(99, 24);
-        u8g2.print("P ");
+        setCursor(7, 1);
+        u8g2.print("P");
         u8g2.print(heaterPIDChan1.Kp_PREHEAT);
-        u8g2.setCursor(99, 34);
-        u8g2.print("I ");
+        setCursor(7, 2);
+        u8g2.print("I");
         u8g2.print(heaterPIDChan1.Ki_PREHEAT);
-        u8g2.setCursor(99, 44);
-        u8g2.print("D ");
+        setCursor(7, 3);
+        u8g2.print("D");
         u8g2.print(heaterPIDChan1.Kd_PREHEAT);
-        u8g2.setCursor(99, 57);
+        setCursor(6, 4);
         u8g2.print("------");
       } else if (currentPIDEditSelection == 0) {
-        u8g2.setCursor(101, 14);
+        setCursor(5, 0);
         u8g2.print("C0_PH");
-        u8g2.setCursor(99, 24);
-        u8g2.print("P ");
+        setCursor(7, 1);
+        u8g2.print("P");
         u8g2.print(heaterPIDChan0.Kp_PREHEAT);
-        u8g2.setCursor(99, 34);
-        u8g2.print("I ");
+        setCursor(7, 2);
+        u8g2.print("I");
         u8g2.print(heaterPIDChan0.Ki_PREHEAT);
-        u8g2.setCursor(99, 44);
-        u8g2.print("D ");
+        setCursor(7, 3);
+        u8g2.print("D");
         u8g2.print(heaterPIDChan0.Kd_PREHEAT);
-        u8g2.setCursor(99, 57);
+        setCursor(6, 4);
         u8g2.print("------");
       } else if (currentPIDEditSelection == 3) {
-        u8g2.setCursor(101, 14);
+        setCursor(5, 0);
         u8g2.print("C1_HT");
-        u8g2.setCursor(99, 24);
-        u8g2.print("P ");
+        setCursor(7, 1);
+        u8g2.print("P");
         u8g2.print(heaterPIDChan1.Kp_SOAK);
-        u8g2.setCursor(99, 34);
-        u8g2.print("I ");
+        setCursor(7, 2);
+        u8g2.print("I");
         u8g2.print(heaterPIDChan1.Ki_SOAK);
-        u8g2.setCursor(99, 44);
-        u8g2.print("D ");
+        setCursor(7, 3);
+        u8g2.print("D");
         u8g2.print(heaterPIDChan1.Kd_SOAK);
-        u8g2.setCursor(99, 57);
+        setCursor(6, 4);
         u8g2.print("------");
       } else if (currentPIDEditSelection == 2) {
-        u8g2.setCursor(101, 14);
+        setCursor(5, 0);
         u8g2.print("C0_HT");
-        u8g2.setCursor(99, 24);
-        u8g2.print("P ");
+        setCursor(7, 1);
+        u8g2.print("P");
         u8g2.print(heaterPIDChan0.Kp_SOAK);
-        u8g2.setCursor(99, 34);
-        u8g2.print("I ");
+        setCursor(7, 2);
+        u8g2.print("I");
         u8g2.print(heaterPIDChan0.Ki_SOAK);
-        u8g2.setCursor(99, 44);
-        u8g2.print("D ");
+        setCursor(7, 3);
+        u8g2.print("D");
         u8g2.print(heaterPIDChan0.Kd_SOAK);
-        u8g2.setCursor(99, 57);
+        setCursor(6, 4);
         u8g2.print("------");
       } else if (currentPIDEditSelection == 5) {
-        u8g2.setCursor(101, 14);
+        setCursor(5, 0);
         u8g2.print("C1_RF");
-        u8g2.setCursor(99, 24);
-        u8g2.print("P ");
+        setCursor(7, 1);
+        u8g2.print("P");
         u8g2.print(heaterPIDChan1.Kp_REFLOW);
-        u8g2.setCursor(99, 34);
-        u8g2.print("I ");
+        setCursor(7, 2);
+        u8g2.print("I");
         u8g2.print(heaterPIDChan1.Ki_REFLOW);
-        u8g2.setCursor(99, 44);
-        u8g2.print("D ");
+        setCursor(7, 3);
+        u8g2.print("D");
         u8g2.print(heaterPIDChan1.Kd_REFLOW);
-        u8g2.setCursor(99, 57);
+        setCursor(6, 4);
         u8g2.print("------");
       } else if (currentPIDEditSelection == 4) {
-        u8g2.setCursor(101, 14);
+        setCursor(5, 0);
         u8g2.print("C0_RF");
-        u8g2.setCursor(99, 24);
-        u8g2.print("P ");
+        setCursor(7, 1);
+        u8g2.print("P");
         u8g2.print(heaterPIDChan0.Kp_REFLOW);
-        u8g2.setCursor(99, 34);
-        u8g2.print("I ");
+        setCursor(7, 2);
+        u8g2.print("I");
         u8g2.print(heaterPIDChan0.Ki_REFLOW);
-        u8g2.setCursor(99, 44);
-        u8g2.print("D ");
+        setCursor(7, 3);
+        u8g2.print("D");
         u8g2.print(heaterPIDChan0.Kd_REFLOW);
-        u8g2.setCursor(99, 57);
+        setCursor(6, 4);
         u8g2.print("------");
       }
+
       break;
 
   }
@@ -1367,6 +1433,16 @@ void loop()
               enableMenu = 0;
               Serial.println("");
               Serial.println ("Reflow Started");
+              if (tcState == 0)
+              {
+                Serial.println("Back == TC0, Front == TC1");
+              } else if (tcState == 1)
+              {
+                Serial.println("Back == TC1, Front == TC0");
+              } else {
+                Serial.println("Back == AVG, Front == AVG");
+              }
+
               Serial.print ("Profile Settings (");
               Serial.print(currentProfile);
               Serial.println(")");
@@ -1538,8 +1614,13 @@ void loop()
 
       if (menuState != 2 && menuState != 4)
       {
-        prevMenuState = menuState;
-        menuState = 2;
+        if (menuState < 2) { // Goto nearest valid menu item
+          prevMenuState = 2;
+          menuState = 2;
+        } else  {
+          prevMenuState = 4;
+          menuState = 4;
+        }
       }
 
     }
