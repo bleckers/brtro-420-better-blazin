@@ -1,11 +1,13 @@
 #include "MAX31855soft.h" //https://github.com/enjoyneering/MAX31855
-#include <U8g2lib.h>
+#include <U8g2lib.h> //https://github.com/olikraus/u8g2
 #include "splash.h"
 #include "helper.h"
 #include "FlashStorage.h"
 #include "PID_v1.h"
 #include "pidautotuner.h"
 #include "variables.h"
+#include "menu.h"
+#include "serial.h"
 
 double shouldBeTemp;
 
@@ -46,25 +48,17 @@ volatile int backState = 0;
 volatile int convectionState = 0;
 volatile int exhaustState = 0;
 
-U8G2_KS0108_128X64_F u8g2(U8G2_R0, DB0, DB1, DB2, DB3, DB4, DB5, DB6, DB7, /*enable=*/E, /*dc=*/DI, /*cs0=*/CS1, /*cs1=*/CS2, /*cs2=*/U8X8_PIN_NONE, /* reset=*/RST);
-U8G2LOG u8g2log;
-// assume 4x6 font, define width and height
-#define U8LOG_WIDTH 32
-#define U8LOG_HEIGHT 1
-uint8_t u8log_buffer[U8LOG_WIDTH * U8LOG_HEIGHT];
+extern U8G2_KS0108_128X64_F u8g2;
+extern U8G2LOG u8g2log;
+extern uint8_t u8log_buffer[];
+extern int errorTimeout;
 
 bool saved = true;
-
-int errorTimeout = 0;
-
 int writeTimeout = -1;
-
 FlashStorage(storedVarFlash, StoredVar);
 
 MAX31855soft MAX31855_0(CSU2, SO, SCK);
 MAX31855soft MAX31855_1(CSU3, SO, SCK);
-
-#define NUMBER_OF_TEMP_AVERAGES 6
 
 double tc0History[NUMBER_OF_TEMP_AVERAGES] = {0};
 double tc1History[NUMBER_OF_TEMP_AVERAGES] = {0};
@@ -86,17 +80,9 @@ int tc0Detect = MAX31855_THERMOCOUPLE_OK;
 int tc1Detect = MAX31855_THERMOCOUPLE_OK;
 
 int currentProfile = 1;
-
-#define START_TEMP_MAX 50
-
 ReflowProfile profiles[MAX_PROFILES + 1]; //Don't use 0 profile
 
 double boardTemp;
-
-void drawScreen();
-void drawMenu(int index);
-void drawMenuBox(int index);
-void drawProfile();
 
 int currentMenuID = 0;
 
@@ -111,8 +97,6 @@ volatile int buttonStateOK = 0;
 
 int menuState = 0;
 int prevMenuState = 0;
-
-
 int buttonBACK = 1;
 int prevButtonBACK = 1;
 unsigned long previousTimeUpdateTemp = 0;
@@ -146,13 +130,6 @@ int profileValueBeingEdited = 0;
 
 int previousSavedProfile;
 
-#define NUMBER_OF_CROSSINGS_AVERAGES 2
-
-volatile unsigned long previousCrossingTime;
-volatile unsigned long crossings[NUMBER_OF_CROSSINGS_AVERAGES] = {0};
-volatile int crossingsHead = 0;
-volatile double crossingAverage;
-
 int currentPIDEditSelection = 0;
 
 unsigned long pollRate = 1000;
@@ -164,7 +141,6 @@ double previousRateDisplayTemp1 = 0;
 boolean tuning = false;
 
 boolean currentStateAutotuned = false;
-
 
 void plusPress()
 {
@@ -186,9 +162,6 @@ void okPress()
 
 void zeroCrossing()
 {
-
-  unsigned long currentCrossingTime = micros();
-
   if (frontState == 1) //Turn on
   {
     digitalWrite(FRONT_HEATER, 0);
@@ -213,29 +186,12 @@ void zeroCrossing()
   } else { //Turn off
     digitalWrite(EXHAUST, 1);
   }
-
-  long long crossingDelta = (long long)currentCrossingTime - (long long)previousCrossingTime;
-
-  if (crossingDelta > 0) //Check if we had an overflow
-  {
-    crossings[crossingsHead] = (unsigned long)crossingDelta;
-
-    previousCrossingTime = currentCrossingTime;
-
-    crossingAverage = avg(crossings, NUMBER_OF_CROSSINGS_AVERAGES);
-
-    crossingsHead++;
-    if (crossingsHead >= NUMBER_OF_CROSSINGS_AVERAGES)
-      crossingsHead = 0;
-  }
 }
 
 void loadSettings()
 {
-
   for (int i = 0; i < MAX_PROFILES; i++)
   {
-
     profiles[i + 1].PreHtTemp = storedVar.profiles[i].PreHtTemp;
     profiles[i + 1].HeatTemp = storedVar.profiles[i].HeatTemp;
     profiles[i + 1].RefTemp = storedVar.profiles[i].RefTemp;
@@ -322,24 +278,7 @@ void setup()
   }
   /* /\ /\ /\ Keep above here /\ /\ /\ */
 
-  pinMode(PLUS, INPUT);
-  pinMode(MINUS, INPUT);
-  pinMode(OK, INPUT);
-  pinMode(BACK, INPUT);
-
-  pinMode(RW, OUTPUT);
-  digitalWrite(RW, 0);
-
-  pinMode(FRONT_HEATER, OUTPUT);
-  pinMode(BACK_HEATER, OUTPUT);
-  pinMode(CONVECTION, OUTPUT);
-  pinMode(EXHAUST, OUTPUT);
-
-  /* Disable outputs */
-  digitalWrite(FRONT_HEATER, 1);
-  digitalWrite(BACK_HEATER, 1);
-  digitalWrite(CONVECTION, 1);
-  digitalWrite(EXHAUST, 1);
+  setOutputs();
 
   u8g2.begin();
   //u8g2.clearBuffer();
@@ -356,7 +295,7 @@ void setup()
   attachInterrupt(digitalPinToInterrupt(MINUS), minusPress, FALLING);
   attachInterrupt(digitalPinToInterrupt(OK), okPress, FALLING);
 
-  //BACK button not on interrupt
+  //BACK button is not on interrupt
 
   attachInterrupt(digitalPinToInterrupt(ZER_D), zeroCrossing, RISING);
 
@@ -388,135 +327,9 @@ void setup()
   drawScreen();
   drawMenu(0); //Draw main menu
   drawMenuBox(0);
-  drawProfile();
+  drawProfile(profiles, tc1Temp, currentProfile);
 
   u8g2.sendBuffer();
-}
-
-
-//This translates from normal cartesian lines to LCD library x,y lines inside profile draw area
-void profileBoxLine(int x1, int y1, int x2, int y2)
-{
-  //start y 7, size 56
-  //start x 1, size 92
-  //u8g2.drawFrame(1, 7, 92, 56);
-
-  u8g2.drawLine(x1 + 1, 56 - y1 + 7, x2 + 1, 56 - y2 + 7);
-}
-
-void profileLine(int startTemp, int endTemp, int startTime, int endTime)
-{
-  //Temp divided into 14x4 ticks
-  //Max temp 280oC (each tick is 20 degrees or 5 degrees per pixel)
-
-  //Time divided into 23x4 ticks
-  //Max time around 7.6 minutes (each tick is 20 seconds or 5 seconds per pixel)
-
-  double y1 = ((double)startTemp) / 280 * 56;
-  double y2 = ((double)endTemp) / 280 * 56;
-
-  double x1 = ((double)startTime) / 460 * 92;
-  double x2 = ((double)endTime) / 460 * 92;
-
-  profileBoxLine(x1, y1, x2, y2);
-}
-
-//This translates from normal cartesian lines to LCD library x,y pixels inside profile draw area
-void profileBoxPixel(int x, int y)
-{
-  //start y 7, size 56
-  //start x 1, size 92
-  //u8g2.drawFrame(1, 7, 92, 56);
-
-  u8g2.drawPixel(x + 1, 56 - y + 7);
-}
-
-void drawCurrentTemp(int currentTemp, int currentTime)
-{
-  //Temp divided into 14x4 ticks
-  //Max temp 280oC (each tick is 20 degrees or 5 degrees per pixel)
-
-  //Time divided into 23x4 ticks
-  //Max time around 7.6 minutes (each tick is 20 seconds or 5 seconds per pixel)
-  if (currentTemp < 280 && currentTemp > 0 && currentTime > 0)
-  {
-    double y = ((double)currentTemp) / 280 * 56;
-
-    double x = ((double)(currentTime % 460)) / 460 * 92; //Wrap around
-
-    profileBoxPixel(x, y);
-  }
-}
-
-void clearProfile()
-{
-  //Clear box
-  u8g2.setDrawColor(0);
-  u8g2.drawBox(1, 7, 92, 56);
-  u8g2.setDrawColor(1);
-
-  // Draw Ticks (Temp)
-  for (int i = 6 + 4; i < 64; i = i + 4)
-  {
-    u8g2.drawPixel(1, i);
-  }
-
-  // Draw Ticks (Time)
-  for (int i = 1; i < 90; i = i + 4)
-  {
-    u8g2.drawPixel(i, 62);
-  }
-}
-
-void drawProfile()
-{
-  clearProfile();
-
-  if (tc1Temp > 0)
-  {
-    profileLine(tc1Temp, profiles[currentProfile].PreHtTemp, 0, profiles[currentProfile].PreHtTime);
-  } else {
-    profileLine(0, profiles[currentProfile].PreHtTemp, 0, profiles[currentProfile].PreHtTime);
-  }
-  unsigned long tempStart = 0;
-  profileLine(tc1Temp, profiles[currentProfile].PreHtTemp, tempStart, tempStart + profiles[currentProfile].PreHtTime);
-  tempStart += profiles[currentProfile].PreHtTime;
-  profileLine(profiles[currentProfile].PreHtTemp, profiles[currentProfile].HeatTemp, tempStart, tempStart + profiles[currentProfile].HeatTime);
-  tempStart += profiles[currentProfile].HeatTime;
-  profileLine(profiles[currentProfile].HeatTemp, profiles[currentProfile].RefTemp, tempStart, tempStart + profiles[currentProfile].RefTime);
-  tempStart += profiles[currentProfile].RefTime;
-  profileLine(profiles[currentProfile].RefTemp, profiles[currentProfile].RefKpTemp, tempStart, tempStart + profiles[currentProfile].RefKpTime);
-  tempStart += profiles[currentProfile].RefKpTime;
-  profileLine(profiles[currentProfile].RefKpTemp, profiles[currentProfile].CoolTemp, tempStart, tempStart + profiles[currentProfile].CoolTime);
-}
-
-void setCursor(int numChars, int lineNumber)
-{
-  int y = 14;
-  switch (lineNumber)
-  {
-    case 0: y = 14; break;
-    case 1: y = 24; break;
-    case 2: y = 34; break;
-    case 3: y = 44; break;
-    case 4: y = 57; break;
-  }
-
-  //Pixels 94 - 128
-  int x = 0;
-  switch (numChars)
-  {
-    case 1: x = 109; break;
-    case 2: x = 107; break;
-    case 3: x = 105; break;
-    case 4: x = 103; break;
-    case 5: x = 101; break;
-    case 6: x = 99; break;
-    case 7: x = 97; break;
-    case 8: x = 95; break;
-  }
-
-  u8g2.setCursor(x, y);
 }
 
 void drawMenu(int index)
@@ -525,102 +338,20 @@ void drawMenu(int index)
   {
     default: //Goto main menu
     case 0: //Main Menu
-      setCursor(6, 0);
-      u8g2.print("Config");
-      setCursor(6, 1);
-      u8g2.print("Prof ");
-      u8g2.print(currentProfile);
-      setCursor(7, 2);
-      u8g2.print("Profile");
-      setCursor(5, 3);
-      u8g2.print("Tools");
-      setCursor(5, 4);
-      u8g2.print("Start");
+      printMainMenu(currentProfile);
       break;
     case 1: //Config Menu
-      setCursor(2, 0);
-      if (celsiusMode) u8g2.print("oC");
-      else u8g2.print("oF");
-      setCursor(7, 1);
-      if (tcState == 0)
-        u8g2.print("B:0,F:1");
-      else if (tcState == 1)
-        u8g2.print("B:1,F:0");
-      else if (tcState == 2)
-        u8g2.print("B:A,F:A");
-      setCursor(6, 2);
-      u8g2.print("------");
-      setCursor(6, 2);
-      u8g2.print("------");
-      setCursor(6, 2);
-      u8g2.print("------");
+      printConfigMenu(celsiusMode, tcState);
       break;
     case 2: //Profile Menu
-      setCursor(5, 0);
-      u8g2.print("PreHt");
-      setCursor(4, 1);
-      u8g2.print("Heat");
-      setCursor(3, 2);
-      u8g2.print("Ref");
-      setCursor(5, 3);
-      u8g2.print("RefKp");
-      setCursor(4, 4);
-      u8g2.print("Cool");
+      printProfileMenu();
       break;
     case 3: //Tools Menu
-      setCursor(4, 0);
-      u8g2.print("Tune");
-      setCursor(3, 1);
-      u8g2.print("PID");
-      setCursor(7, 2);
-      u8g2.print("TestOut");
-      setCursor(5, 3);
-      u8g2.print("Reset");
-      setCursor(6, 4);
-      u8g2.print("------");
+      printToolsMenu();
       break;
     case 4: //Start Has been Pressed
 
-      switch (currentState)
-      {
-        case PREHT:
-          {
-            setCursor(5, 0);
-            u8g2.print("PreHt");
-            break;
-          }
-        case HEAT:
-          {
-            setCursor(4, 0);
-            u8g2.print("Heat");
-            break;
-          }
-        case REF:
-          {
-            setCursor(3, 0);
-            u8g2.print("Ref");
-            break;
-          }
-        case REFKP:
-          {
-            setCursor(5, 0);
-            u8g2.print("RefKp");
-            break;
-          }
-        case COOL:
-          {
-            setCursor(4, 0);
-            u8g2.print("Cool");
-            break;
-          }
-        default:
-        case IDLEM:
-          {
-            setCursor(4, 0);
-            u8g2.print("Idle");
-            break;
-          }
-      }
+      printCurrentState(currentState);
 
       if (celsiusMode)
       {
@@ -655,314 +386,21 @@ void drawMenu(int index)
       break;
 
     case 5: //Edit Values
-
-      switch (profileValueBeingEdited)
-      {
-        case PREHT:
-          {
-            setCursor(5, 0);
-            u8g2.print("PreHt");
-            setCursor(4, 1);
-            u8g2.print("Temp");
-
-            if (celsiusMode)
-            {
-              setCursor(intLen(profiles[currentProfile].PreHtTemp), 2);
-              u8g2.print(profiles[currentProfile].PreHtTemp);
-            }
-            else  {
-              setCursor(intLen(profiles[currentProfile].PreHtTemp), 2);
-              u8g2.print(cToF(profiles[currentProfile].PreHtTemp));
-            }
-            setCursor(7, 3);
-            u8g2.print("Seconds");
-            setCursor(intLen(profiles[currentProfile].PreHtTime), 4);
-            u8g2.print(profiles[currentProfile].PreHtTime);
-            break;
-          }
-        case HEAT:
-          {
-            setCursor(4, 0);
-            u8g2.print("Heat");
-            setCursor(4, 1);
-            u8g2.print("Temp");
-
-            if (celsiusMode) {
-              setCursor(intLen(profiles[currentProfile].HeatTemp), 2);
-              u8g2.print(profiles[currentProfile].HeatTemp);
-            }
-            else {
-              setCursor(intLen(cToF(profiles[currentProfile].HeatTemp)), 2);
-              u8g2.print(cToF(profiles[currentProfile].HeatTemp));
-            }
-            setCursor(7, 3);
-            u8g2.print("Seconds");
-            setCursor(intLen(profiles[currentProfile].HeatTime), 4);
-            u8g2.print(profiles[currentProfile].HeatTime);
-            break;
-          }
-        case REF:
-          {
-            setCursor(3, 0);
-            u8g2.print("Ref");
-            setCursor(4, 1);
-            u8g2.print("Temp");
-            if (celsiusMode) {
-              setCursor(intLen(profiles[currentProfile].RefTemp), 2);
-              u8g2.print(profiles[currentProfile].RefTemp);
-            }
-            else {
-              setCursor(intLen(cToF(profiles[currentProfile].RefTemp)), 2);
-              u8g2.print(cToF(profiles[currentProfile].RefTemp));
-            }
-            setCursor(7, 3);
-            u8g2.print("Seconds");
-            setCursor(intLen(profiles[currentProfile].RefTime), 4);
-            u8g2.print(profiles[currentProfile].RefTime);
-            break;
-          }
-        case REFKP:
-          {
-            setCursor(5, 0);
-            u8g2.print("RefKp");
-            setCursor(4, 1);
-            u8g2.print("Temp");
-            if (celsiusMode) {
-              setCursor(intLen(profiles[currentProfile].RefKpTemp), 2);
-              u8g2.print(profiles[currentProfile].RefKpTemp);
-            }
-            else {
-              setCursor(intLen(cToF(profiles[currentProfile].RefKpTemp)), 2);
-              u8g2.print(cToF(profiles[currentProfile].RefKpTemp));
-            }
-            setCursor(7, 3);
-            u8g2.print("Seconds");
-            setCursor(intLen(profiles[currentProfile].RefKpTime), 4);
-            u8g2.print(profiles[currentProfile].RefKpTime);
-            break;
-          }
-        case COOL:
-          {
-            setCursor(4, 0);
-            u8g2.print("Cool");
-            setCursor(4, 1);
-            u8g2.print("Temp");
-            if (celsiusMode) {
-              setCursor(intLen(profiles[currentProfile].CoolTemp), 2);
-              u8g2.print(profiles[currentProfile].CoolTemp);
-            }
-            else {
-              setCursor(intLen(cToF(profiles[currentProfile].CoolTemp)), 2);
-              u8g2.print(cToF(profiles[currentProfile].CoolTemp));
-            }
-            setCursor(7, 3);
-            u8g2.print("Seconds");
-            setCursor(intLen(profiles[currentProfile].CoolTime), 4);
-            u8g2.print(profiles[currentProfile].CoolTime);
-            break;
-          }
-      }
+      printEditValues(profileValueBeingEdited, profiles, currentProfile, celsiusMode);
       break;
+      
     case 6: //Test
-      setCursor(5, 0);
-      u8g2.print("Front");
-      setCursor(4, 1);
-      u8g2.print("Back");
-      setCursor(4, 2);
-      u8g2.print("Stir");
-      setCursor(4, 3);
-      u8g2.print("Vent");
-      setCursor(6, 4);
-      u8g2.print("------");
+      printTestMenu();
       break;
 
     case 7: //PID
-      if (currentPIDEditSelection == 1) {
-        setCursor(5, 0);
-        u8g2.print("C1_PH");
-        setCursor(7, 1);
-        u8g2.print("P");
-        u8g2.print(heaterPIDChan1.Kp_PREHEAT);
-        setCursor(7, 2);
-        u8g2.print("I");
-        u8g2.print(heaterPIDChan1.Ki_PREHEAT);
-        setCursor(7, 3);
-        u8g2.print("D");
-        u8g2.print(heaterPIDChan1.Kd_PREHEAT);
-        setCursor(6, 4);
-        u8g2.print("------");
-      } else if (currentPIDEditSelection == 0) {
-        setCursor(5, 0);
-        u8g2.print("C0_PH");
-        setCursor(7, 1);
-        u8g2.print("P");
-        u8g2.print(heaterPIDChan0.Kp_PREHEAT);
-        setCursor(7, 2);
-        u8g2.print("I");
-        u8g2.print(heaterPIDChan0.Ki_PREHEAT);
-        setCursor(7, 3);
-        u8g2.print("D");
-        u8g2.print(heaterPIDChan0.Kd_PREHEAT);
-        setCursor(6, 4);
-        u8g2.print("------");
-      } else if (currentPIDEditSelection == 3) {
-        setCursor(5, 0);
-        u8g2.print("C1_HT");
-        setCursor(7, 1);
-        u8g2.print("P");
-        u8g2.print(heaterPIDChan1.Kp_SOAK);
-        setCursor(7, 2);
-        u8g2.print("I");
-        u8g2.print(heaterPIDChan1.Ki_SOAK);
-        setCursor(7, 3);
-        u8g2.print("D");
-        u8g2.print(heaterPIDChan1.Kd_SOAK);
-        setCursor(6, 4);
-        u8g2.print("------");
-      } else if (currentPIDEditSelection == 2) {
-        setCursor(5, 0);
-        u8g2.print("C0_HT");
-        setCursor(7, 1);
-        u8g2.print("P");
-        u8g2.print(heaterPIDChan0.Kp_SOAK);
-        setCursor(7, 2);
-        u8g2.print("I");
-        u8g2.print(heaterPIDChan0.Ki_SOAK);
-        setCursor(7, 3);
-        u8g2.print("D");
-        u8g2.print(heaterPIDChan0.Kd_SOAK);
-        setCursor(6, 4);
-        u8g2.print("------");
-      } else if (currentPIDEditSelection == 5) {
-        setCursor(5, 0);
-        u8g2.print("C1_RF");
-        setCursor(7, 1);
-        u8g2.print("P");
-        u8g2.print(heaterPIDChan1.Kp_REFLOW);
-        setCursor(7, 2);
-        u8g2.print("I");
-        u8g2.print(heaterPIDChan1.Ki_REFLOW);
-        setCursor(7, 3);
-        u8g2.print("D");
-        u8g2.print(heaterPIDChan1.Kd_REFLOW);
-        setCursor(6, 4);
-        u8g2.print("------");
-      } else if (currentPIDEditSelection == 4) {
-        setCursor(5, 0);
-        u8g2.print("C0_RF");
-        setCursor(7, 1);
-        u8g2.print("P");
-        u8g2.print(heaterPIDChan0.Kp_REFLOW);
-        setCursor(7, 2);
-        u8g2.print("I");
-        u8g2.print(heaterPIDChan0.Ki_REFLOW);
-        setCursor(7, 3);
-        u8g2.print("D");
-        u8g2.print(heaterPIDChan0.Kd_REFLOW);
-        setCursor(6, 4);
-        u8g2.print("------");
-      }
-
-      break;
-
-  }
-}
-
-void drawScreen()
-{
-  // Draw Frame
-  u8g2.drawFrame(0, 6, 128, 64 - 6);
-  u8g2.drawLine(93, 6, 93, 64);
-
-  // Draw Main Menu Lines
-
-  u8g2.drawLine(93, 16, 128, 16);
-  u8g2.drawLine(93, 26, 128, 26);
-  u8g2.drawLine(93, 36, 128, 36);
-  u8g2.drawLine(93, 46, 128, 46);
-}
-
-void drawMenuBox(int index)
-{
-  u8g2.setDrawColor(2);
-
-  switch (index)
-  {
-    case 0:
-      u8g2.drawBox(95, 8, 31, 7);
-      break;
-    case 1:
-      u8g2.drawBox(95, 18, 31, 7);
-      break;
-    case 2:
-      u8g2.drawBox(95, 28, 31, 7);
-      break;
-    case 3:
-      u8g2.drawBox(95, 38, 31, 7);
-      break;
-    case 4:
-      u8g2.drawBox(95, 48, 31, 14);
+      printCurrentPIDMenu(heaterPIDChan0, heaterPIDChan1, currentPIDEditSelection);
       break;
   }
-
-  u8g2.setDrawColor(1); //set to default
-}
-
-void refreshMenu()
-{
-  u8g2.setDrawColor(0);
-
-  u8g2.drawBox(94, 8, 32, 54);
-
-  u8g2.setDrawColor(1); //set to default
-
-  // Draw Main Menu Lines
-
-  u8g2.drawLine(93, 16, 128, 16);
-  u8g2.drawLine(93, 26, 128, 26);
-  u8g2.drawLine(93, 36, 128, 36);
-  u8g2.drawLine(93, 46, 128, 46);
-}
-
-void undrawMenuBox(int index)
-{
-  u8g2.setDrawColor(0);
-
-  switch (index)
-  {
-    case 0:
-      {
-        u8g2.drawBox(94, 8, 32, 7);
-        break;
-      }
-    case 1:
-      {
-        u8g2.drawBox(94, 18, 32, 7);
-        break;
-      }
-    case 2:
-      {
-        u8g2.drawBox(94, 28, 32, 7);
-        break;
-      }
-    case 3:
-      {
-        u8g2.drawBox(94, 38, 32, 7);
-        break;
-      }
-    case 4:
-      {
-        u8g2.drawBox(94, 48, 32, 14);
-        break;
-      }
-  }
-
-  u8g2.setDrawColor(1);
 }
 
 void readTemps()
 {
-
   tc0PrevTemp = tc0Temp;
   tc1PrevTemp = tc1Temp;
 
@@ -985,7 +423,6 @@ void readTemps()
 
   rawData = MAX31855_1.readRawData();
   tc1Detect = MAX31855_1.detectThermocouple(rawData);
-
 
   if (tc1Detect == MAX31855_THERMOCOUPLE_OK)
   {
@@ -1088,7 +525,6 @@ void disableReflow()
   reflow = 0;
   currentState = IDLEM;
   pollRate = 1000;
-
 }
 
 void startReflow()
@@ -1102,9 +538,7 @@ void startReflow()
   rampRateChan0 = 0;
   rampRateChan1 = 0;
 
-
   previousRateDisplayTemp0 = backTemp;
-
   previousRateDisplayTemp1 = frontTemp;
 
   pollRate = 200;
@@ -1112,25 +546,20 @@ void startReflow()
   PIDChan1.SetSampleTime(200);
 }
 
-
-void printError()
+void profileEdited()
 {
-
-
-  // Refresh the screen
-  u8g2log.print("\r");
-  u8g2.drawLog(0, 5, u8g2log);
-
-  u8g2.updateDisplayArea(0, 0, 128, 6);
-
-  errorTimeout = 1;
+  buttonStateOK = 0;
+  buttonStatePLUS = 0;
+  buttonStateMINUS = 0;
+  valueChanged = true;
+  refreshMenu();
+  drawMenu(currentMenuID);
+  drawMenuBox(menuState);
+  u8g2.updateDisplay();
 }
-
-
 
 void loop()
 {
-
   /* Back button not on interrupt */
   buttonBACK = digitalRead(BACK);
   if (buttonBACK == 0 && prevButtonBACK == 1 && buttonStateBACK == 0)
@@ -1157,49 +586,8 @@ void loop()
           delay(1); //noise reduction delay
           if (digitalRead(OK) == 0)
           {
-            buttonStateOK = 0;
-            buttonStatePLUS = 0;
-            buttonStateMINUS = 0;
-            valueChanged = true;
-            switch (profileValueBeingEdited)
-            {
-              case PREHT:
-                {
-
-                  profiles[currentProfile].PreHtTemp = profiles[currentProfile].PreHtTemp - 1;
-                  if (profiles[currentProfile].PreHtTemp < 0) profiles[currentProfile].PreHtTemp = 250;
-
-                  break;
-                }
-              case HEAT:
-                {
-                  profiles[currentProfile].HeatTemp = profiles[currentProfile].HeatTemp - 1;
-                  if (profiles[currentProfile].HeatTemp < 0) profiles[currentProfile].HeatTemp = 250;
-                  break;
-                }
-              case REF:
-                {
-                  profiles[currentProfile].RefTemp = profiles[currentProfile].RefTemp - 1;
-                  if (profiles[currentProfile].RefTemp < 0) profiles[currentProfile].RefTemp = 250;
-                  break;
-                }
-              case REFKP:
-                {
-                  profiles[currentProfile].RefKpTemp = profiles[currentProfile].RefKpTemp - 1;
-                  if (profiles[currentProfile].RefKpTemp < 0) profiles[currentProfile].RefKpTemp = 250;
-                  break;
-                }
-              case COOL:
-                {
-                  profiles[currentProfile].CoolTemp = profiles[currentProfile].CoolTemp - 1;
-                  if (profiles[currentProfile].CoolTemp < 0) profiles[currentProfile].CoolTemp = 250;
-                  break;
-                }
-            }
-            refreshMenu();
-            drawMenu(currentMenuID);
-            drawMenuBox(menuState);
-            u8g2.updateDisplay();
+            editProfileTemp(profileValueBeingEdited, profiles, currentProfile, false);
+            profileEdited();
           }
         }
         else if (menuState == 4 && digitalRead(OK) == 0)
@@ -1207,49 +595,8 @@ void loop()
           delay(1); //noise reduction delay
           if (digitalRead(OK) == 0)
           {
-            buttonStateOK = 0;
-            buttonStatePLUS = 0;
-            buttonStateMINUS = 0;
-            valueChanged = true;
-            switch (profileValueBeingEdited)
-            {
-              case PREHT:
-                {
-
-                  profiles[currentProfile].PreHtTime = profiles[currentProfile].PreHtTime - 1;
-                  if (profiles[currentProfile].PreHtTime < 0) profiles[currentProfile].PreHtTime = 200;
-
-                  break;
-                }
-              case HEAT:
-                {
-                  profiles[currentProfile].HeatTime = profiles[currentProfile].HeatTime - 1;
-                  if (profiles[currentProfile].HeatTime < 0) profiles[currentProfile].HeatTime = 200;
-                  break;
-                }
-              case REF:
-                {
-                  profiles[currentProfile].RefTime = profiles[currentProfile].RefTime - 1;
-                  if (profiles[currentProfile].RefTime < 0) profiles[currentProfile].RefTime = 200;
-                  break;
-                }
-              case REFKP:
-                {
-                  profiles[currentProfile].RefKpTime = profiles[currentProfile].RefKpTime - 1;
-                  if (profiles[currentProfile].RefKpTime < 0) profiles[currentProfile].RefKpTime = 200;
-                  break;
-                }
-              case COOL:
-                {
-                  profiles[currentProfile].CoolTime = profiles[currentProfile].CoolTime - 1;
-                  if (profiles[currentProfile].CoolTime < 0) profiles[currentProfile].CoolTime = 200;
-                  break;
-                }
-            }
-            refreshMenu();
-            drawMenu(currentMenuID);
-            drawMenuBox(menuState);
-            u8g2.updateDisplay();
+            editProfileTime(profileValueBeingEdited, profiles, currentProfile, false);
+            profileEdited();
           }
         } else {
           menuState = 4; //We're in profile edit mode
@@ -1274,50 +621,8 @@ void loop()
           delay(1); //noise reduction
           if (digitalRead(OK) == 0)
           {
-            //buzzer(SPK);
-            buttonStateOK = 0;
-            buttonStatePLUS = 0;
-            buttonStateMINUS = 0;
-            valueChanged = true;
-            switch (profileValueBeingEdited)
-            {
-              case PREHT:
-                {
-
-                  profiles[currentProfile].PreHtTemp = profiles[currentProfile].PreHtTemp + 1;
-                  if (profiles[currentProfile].PreHtTemp > 250) profiles[currentProfile].PreHtTemp = 0;
-
-                  break;
-                }
-              case HEAT:
-                {
-                  profiles[currentProfile].HeatTemp = profiles[currentProfile].HeatTemp + 1;
-                  if (profiles[currentProfile].HeatTemp > 250) profiles[currentProfile].HeatTemp = 0;
-                  break;
-                }
-              case REF:
-                {
-                  profiles[currentProfile].RefTemp = profiles[currentProfile].RefTemp + 1;
-                  if (profiles[currentProfile].RefTemp > 250) profiles[currentProfile].RefTemp = 0;
-                  break;
-                }
-              case REFKP:
-                {
-                  profiles[currentProfile].RefKpTemp = profiles[currentProfile].RefKpTemp + 1;
-                  if (profiles[currentProfile].RefKpTemp > 250) profiles[currentProfile].RefKpTemp = 0;
-                  break;
-                }
-              case COOL:
-                {
-                  profiles[currentProfile].CoolTemp = profiles[currentProfile].CoolTemp + 1;
-                  if (profiles[currentProfile].CoolTemp > 250) profiles[currentProfile].CoolTemp = 0;
-                  break;
-                }
-            }
-            refreshMenu();
-            drawMenu(currentMenuID);
-            drawMenuBox(menuState);
-            u8g2.updateDisplay();
+            profileEdited();
+            editProfileTemp(profileValueBeingEdited, profiles, currentProfile, true);
           }
         }
         else if (menuState == 4 && digitalRead(OK) == 0)
@@ -1325,58 +630,12 @@ void loop()
           delay(1); //noise reduction delay
           if (digitalRead(OK) == 0)
           {
-            buttonStateOK = 0;
-            buttonStatePLUS = 0;
-            buttonStateMINUS = 0;
-            valueChanged = true;
-            switch (profileValueBeingEdited)
-            {
-              case PREHT:
-                {
-
-                  profiles[currentProfile].PreHtTime = profiles[currentProfile].PreHtTime + 1;
-                  if (profiles[currentProfile].PreHtTime > 200) profiles[currentProfile].PreHtTime = 0;
-
-                  break;
-                }
-              case HEAT:
-                {
-                  profiles[currentProfile].HeatTime = profiles[currentProfile].HeatTime + 1;
-                  if (profiles[currentProfile].HeatTime > 200) profiles[currentProfile].HeatTime = 0;
-                  break;
-                }
-              case REF:
-                {
-                  profiles[currentProfile].RefTime = profiles[currentProfile].RefTime + 1;
-                  if (profiles[currentProfile].RefTime > 200) profiles[currentProfile].RefTime = 0;
-                  break;
-                }
-              case REFKP:
-                {
-                  profiles[currentProfile].RefKpTime = profiles[currentProfile].RefKpTime + 1;
-                  if (profiles[currentProfile].RefKpTime > 200) profiles[currentProfile].RefKpTime = 0;
-                  break;
-                }
-              case COOL:
-                {
-                  profiles[currentProfile].CoolTime = profiles[currentProfile].CoolTime + 1;
-                  if (profiles[currentProfile].CoolTime > 200) profiles[currentProfile].CoolTime = 0;
-                  break;
-                }
-            }
-
-            refreshMenu();
-            drawMenu(currentMenuID);
-            drawMenuBox(menuState);
-            u8g2.updateDisplay();
+            editProfileTime(profileValueBeingEdited, profiles, currentProfile, true);
+            profileEdited();
           }
-
-
-
         } else {
           menuState = 2;
         }
-
       } else {
         menuState--;
         if (menuState < 0)
@@ -1384,8 +643,6 @@ void loop()
       }
     }
   }
-
-
 
   if (buttonStateOK == 1)
   {
@@ -1407,7 +664,7 @@ void loop()
             currentProfile++;
             if (currentProfile > 9)
               currentProfile = 1;
-            drawProfile();
+            drawProfile(profiles, tc1Temp, currentProfile);
             storedVar.profile = currentProfile;
             if (previousSavedProfile != currentProfile)
             {
@@ -1433,161 +690,20 @@ void loop()
             if (backTemp < START_TEMP_MAX && frontTemp < START_TEMP_MAX)
             {
               //TODO check for thermocouple
-              drawProfile();
+              drawProfile(profiles, tc1Temp, currentProfile);
               u8g2.updateDisplay();
 
               currentMenuID = 4;
 
               //Update menu each second
               enableMenu = 0;
-              Serial.println("");
-              Serial.println ("Reflow Started");
-              if (tcState == 0)
-              {
-                Serial.println("Back == TC0, Front == TC1");
-              } else if (tcState == 1)
-              {
-                Serial.println("Back == TC1, Front == TC0");
-              } else {
-                Serial.println("Back == AVG, Front == AVG");
-              }
-
-              Serial.print ("Profile Settings (");
-              Serial.print(currentProfile);
-              Serial.println(")");
-
-              Serial.print("PreHt: ");
-              if (celsiusMode) {
-                Serial.print(profiles[currentProfile].PreHtTemp);
-                Serial.print("°C, ");
-              } else {
-                Serial.print(cToF(profiles[currentProfile].PreHtTemp));
-                Serial.print("°F, ");
-              }
-              Serial.print(profiles[currentProfile].PreHtTime);
-              Serial.println("s");
-
-              Serial.print("Heat: ");
-              if (celsiusMode) {
-                Serial.print(profiles[currentProfile].HeatTemp);
-                Serial.print("°C, ");
-              } else {
-                Serial.print(cToF(profiles[currentProfile].HeatTemp));
-                Serial.print("°F, ");
-              }
-              Serial.print(profiles[currentProfile].HeatTime);
-              Serial.println("s");
-
-              Serial.print("Ref: ");
-              if (celsiusMode) {
-                Serial.print(profiles[currentProfile].RefTemp);
-                Serial.print("°C, ");
-              } else {
-                Serial.print(cToF(profiles[currentProfile].RefTemp));
-                Serial.print("°F, ");
-              }
-              Serial.print(profiles[currentProfile].RefTime);
-              Serial.println("s");
-
-              Serial.print("RefKp: ");
-              if (celsiusMode) {
-                Serial.print(profiles[currentProfile].RefKpTemp);
-                Serial.print("°C, ");
-              } else {
-                Serial.print(cToF(profiles[currentProfile].RefKpTemp));
-                Serial.print("°F, ");
-              }
-              Serial.print(profiles[currentProfile].RefKpTime);
-              Serial.println("s");
-
-              Serial.print("Cool: ");
-              if (celsiusMode) {
-                Serial.print(profiles[currentProfile].CoolTemp);
-                Serial.print("°C, ");
-              } else {
-                Serial.print(cToF(profiles[currentProfile].CoolTemp));
-                Serial.print("°F, ");
-              }
-              Serial.print(profiles[currentProfile].CoolTime);
-              Serial.println("s");
-
-              Serial.println("");
-
-              Serial.println("Channel 0 PID Preheat");
-
-              Serial.print("P: ");
-              Serial.println(heaterPIDChan0.Kp_PREHEAT);
-              Serial.print("I: ");
-              Serial.println(heaterPIDChan0.Ki_PREHEAT);
-              Serial.print("D: ");
-              Serial.println(heaterPIDChan0.Kd_PREHEAT);
-
-              Serial.println("");
-
-              Serial.println("Channel 1 PID Preheat");
-
-              Serial.print("P: ");
-              Serial.println(heaterPIDChan1.Kp_PREHEAT);
-              Serial.print("I: ");
-              Serial.println(heaterPIDChan1.Ki_PREHEAT);
-              Serial.print("D: ");
-              Serial.println(heaterPIDChan1.Kd_PREHEAT);
-
-              Serial.println("");
-
-              Serial.println("Channel 0 PID Heat");
-
-              Serial.print("P: ");
-              Serial.println(heaterPIDChan0.Kp_SOAK);
-              Serial.print("I: ");
-              Serial.println(heaterPIDChan0.Ki_SOAK);
-              Serial.print("D: ");
-              Serial.println(heaterPIDChan0.Kd_SOAK);
-
-              Serial.println("");
-
-              Serial.println("Channel 1 PID Heat");
-
-              Serial.print("P: ");
-              Serial.println(heaterPIDChan1.Kp_SOAK);
-              Serial.print("I: ");
-              Serial.println(heaterPIDChan1.Ki_SOAK);
-              Serial.print("D: ");
-              Serial.println(heaterPIDChan1.Kd_SOAK);
-
-              Serial.println("");
-
-              Serial.println("Channel 0 PID Reflow");
-
-              Serial.print("P: ");
-              Serial.println(heaterPIDChan0.Kp_REFLOW);
-              Serial.print("I: ");
-              Serial.println(heaterPIDChan0.Ki_REFLOW);
-              Serial.print("D: ");
-              Serial.println(heaterPIDChan0.Kd_REFLOW);
-
-              Serial.println("");
-
-              Serial.println("Channel 1 PID Reflow");
-
-              Serial.print("P: ");
-              Serial.println(heaterPIDChan1.Kp_REFLOW);
-              Serial.print("I: ");
-              Serial.println(heaterPIDChan1.Ki_REFLOW);
-              Serial.print("D: ");
-              Serial.println(heaterPIDChan1.Kd_REFLOW);
-
-
-              Serial.println("");
-              Serial.println("Mode,Seconds,SetPoint,TC0,RateTC0,PWMOut0,TC1,RateTC1,PWMOut1");
-              Serial.println("");
+              serialPrintProfile(tcState, currentProfile, profiles, heaterPIDChan0, heaterPIDChan1, celsiusMode);
 
               startReflow();
             } else {
               u8g2log.print("\fERR:Temp >50");
               printError();
             }
-
             break;
           }
       }
@@ -1614,7 +730,8 @@ void loop()
       disableReflow();
 
       printError();
-    } else if (currentMenuID == 2) //Editing profile value
+    }
+    else if (currentMenuID == 2) //Editing profile value
     {
       currentMenuID = 5;
 
@@ -1631,7 +748,6 @@ void loop()
           menuState = 4;
         }
       }
-
     }
     else if (currentMenuID == 5) //Editing a profile value
     {
@@ -1689,7 +805,6 @@ void loop()
       currentState = NONE;
       switch (menuState)
       {
-
         case 0: //Front
           if (frontState == 0) //Turn on
           {
@@ -1725,10 +840,8 @@ void loop()
       }
     } else if (currentMenuID == 7) //PID menu
     {
-
       switch (menuState)
       {
-
         case 0: //Channel Selection
           currentPIDEditSelection++;
           if (currentPIDEditSelection > 5) currentPIDEditSelection = 0;
@@ -1737,10 +850,8 @@ void loop()
           //TODO: Be able to edit these with +/-?
           break;
         case 2: //I
-
           break;
         case 3: //D
-
           break;
       }
     } else if (currentMenuID == 1) //Config menu
@@ -1789,7 +900,6 @@ void loop()
             saved = false;
             writeTimeout = 1000;
           }
-
         }
         valueChanged = false;
         break;
@@ -1848,7 +958,7 @@ void loop()
 
         currentMenuID = 2;
 
-        drawProfile();
+        drawProfile(profiles, tc1Temp, currentProfile);
         u8g2.updateDisplay();
 
         break;
@@ -1895,7 +1005,6 @@ void loop()
 
   unsigned long currentTime = millis();
 
-
   if (reflow) {
     //Shouldn't overflow with the timeframes required for overflow
     currentReflowSeconds = (currentTime - reflowStartTime) / 1000;
@@ -1908,7 +1017,6 @@ void loop()
 
   if (currentTime - previousTimeReflowDisplayUpdate >= 1000 )
   {
-
     previousTimeReflowDisplayUpdate = currentTime;
 
     if (reflow) {
@@ -1918,34 +1026,7 @@ void loop()
 
       u8g2.updateDisplay();
 
-      switch (currentState)
-      {
-        case PREHT:
-          {
-            Serial.print("PreHt,");
-            break;
-          }
-        case HEAT:
-          {
-            Serial.print("Heat,");
-            break;
-          }
-        case REF:
-          {
-            Serial.print("Ref,");
-            break;
-          }
-        case REFKP:
-          {
-            Serial.print("RefKp,");
-            break;
-          }
-        case COOL:
-          {
-            Serial.print("Cool,");
-            break;
-          }
-      }
+      serialPrintCurrentState(currentState);
 
       Serial.print(currentReflowSeconds);
       Serial.print(",");
@@ -2117,32 +1198,12 @@ void loop()
 
               Serial.println("Preheat Tune Done");
               u8g2log.print("\fPreheat Tune Done");
-              Serial.println("Channel 0 PID Preheat");
-
-              Serial.print("P: ");
-              Serial.println(heaterPIDChan0.Kp_PREHEAT);
-              Serial.print("I: ");
-              Serial.println(heaterPIDChan0.Ki_PREHEAT);
-              Serial.print("D: ");
-              Serial.println(heaterPIDChan0.Kd_PREHEAT);
-
-              Serial.println("");
-
-              Serial.println("Channel 1 PID Preheat");
-
-              Serial.print("P: ");
-              Serial.println(heaterPIDChan1.Kp_PREHEAT);
-              Serial.print("I: ");
-              Serial.println(heaterPIDChan1.Ki_PREHEAT);
-              Serial.print("D: ");
-              Serial.println(heaterPIDChan1.Kd_PREHEAT);
+              serialPrintTuningDonePreheat(heaterPIDChan0, heaterPIDChan1);
 
               printError();
 
             }
-
           } else {
-
             if (backTemp > profiles[currentProfile].PreHtTemp - 1 && frontTemp > profiles[currentProfile].PreHtTemp - 1) {
               currentState = HEAT;
             }
@@ -2234,30 +1295,12 @@ void loop()
 
               Serial.println("Heat Tune Done");
               u8g2log.print("\fHeat Tune Done");
-              Serial.println("Channel 0 PID Heat");
 
-              Serial.print("P: ");
-              Serial.println(heaterPIDChan0.Kp_SOAK);
-              Serial.print("I: ");
-              Serial.println(heaterPIDChan0.Ki_SOAK);
-              Serial.print("D: ");
-              Serial.println(heaterPIDChan0.Kd_SOAK);
-
-              Serial.println("");
-
-              Serial.println("Channel 1 PID Heat");
-
-              Serial.print("P: ");
-              Serial.println(heaterPIDChan1.Kp_SOAK);
-              Serial.print("I: ");
-              Serial.println(heaterPIDChan1.Ki_SOAK);
-              Serial.print("D: ");
-              Serial.println(heaterPIDChan1.Kd_SOAK);
+              serialPrintTuningDoneHeat(heaterPIDChan0, heaterPIDChan1);
 
               printError();
 
             }
-
           } else {
 
             if (backTemp >= profiles[currentProfile].HeatTemp - 1 && frontTemp >= profiles[currentProfile].HeatTemp - 1) {
@@ -2301,7 +1344,6 @@ void loop()
           } else {
             shouldBeTemp = ((double)abs(currentTime - startStateMillis)) / 1000 * rate + profiles[currentProfile].HeatTemp;
           }
-
 
           /* If we don't reach the temp in time, hold the temp as setpoint */
           if (shouldBeTemp > profiles[currentProfile].RefTemp)// && tc0Temp < profiles[currentProfile].RefTemp && tc1Temp < profiles[currentProfile].RefTemp)
@@ -2348,25 +1390,8 @@ void loop()
 
               Serial.println("Reflow Tune Done");
               u8g2log.print("\fReflow Tune Done");
-              Serial.println("Channel 0 PID Reflow");
 
-              Serial.print("P: ");
-              Serial.println(heaterPIDChan0.Kp_REFLOW);
-              Serial.print("I: ");
-              Serial.println(heaterPIDChan0.Ki_REFLOW);
-              Serial.print("D: ");
-              Serial.println(heaterPIDChan0.Kd_REFLOW);
-
-              Serial.println("");
-
-              Serial.println("Channel 1 PID Reflow");
-
-              Serial.print("P: ");
-              Serial.println(heaterPIDChan1.Kp_REFLOW);
-              Serial.print("I: ");
-              Serial.println(heaterPIDChan1.Ki_REFLOW);
-              Serial.print("D: ");
-              Serial.println(heaterPIDChan1.Kd_REFLOW);
+              serialPrintTuningDoneReflow(heaterPIDChan0, heaterPIDChan1);
 
               printError();
 
@@ -2416,8 +1441,6 @@ void loop()
           if (abs((currentTime - startStateMillis) / 1000) >= (unsigned int)profiles[currentProfile].RefKpTime) {
             currentState = COOL;
           }
-
-
           break;
         }
 
@@ -2496,15 +1519,11 @@ void loop()
             OutputChan0 = 0;
             OutputChan1 = 0;
           }
-
-
           break;
-
         }
       default:
       case NONE:
         {
-
           break;
         }
     }

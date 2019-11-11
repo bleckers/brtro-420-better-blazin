@@ -1,5 +1,8 @@
 #include <Arduino.h>
 
+#ifndef _HELPER_H
+#define _HELPER_H
+
 #define SO 0
 #define CSU2 1
 #define BT3 2
@@ -62,6 +65,28 @@
 #define BOOT_MAGIC_VALUE (*((volatile uint32_t *)BOOT_MAGIC_ADDRESS))
 #define BOOT_MAGIC_BOOTLOADER_ENABLE 0x32
 
+void setOutputs()
+{
+  pinMode(PLUS, INPUT);
+  pinMode(MINUS, INPUT);
+  pinMode(OK, INPUT);
+  pinMode(BACK, INPUT);
+
+  pinMode(RW, OUTPUT);
+  digitalWrite(RW, 0);
+
+  pinMode(FRONT_HEATER, OUTPUT);
+  pinMode(BACK_HEATER, OUTPUT);
+  pinMode(CONVECTION, OUTPUT);
+  pinMode(EXHAUST, OUTPUT);
+
+  /* Disable outputs */
+  digitalWrite(FRONT_HEATER, 1);
+  digitalWrite(BACK_HEATER, 1);
+  digitalWrite(CONVECTION, 1);
+  digitalWrite(EXHAUST, 1);
+}
+
 void buzzer(int pin)
 {
   pinMode(pin, OUTPUT);
@@ -113,3 +138,5 @@ unsigned long avg(volatile unsigned long *array, uint8_t count)
 
   return sum / count;
 }
+
+#endif

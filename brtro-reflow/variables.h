@@ -1,3 +1,13 @@
+
+#ifndef _VARIABLES_H
+#define _VARIABLES_H
+
+#define START_TEMP_MAX 50
+#define NUMBER_OF_TEMP_AVERAGES 6
+#define NUMBER_OF_CROSSINGS_AVERAGES 2
+
+
+
 // ******************* DEFAULT PID PARAMETERS *******************
 // ***** PRE-HEAT STAGE *****
 #define PID_KP_PREHEAT_C0 40 //50.28 //
@@ -60,7 +70,7 @@ struct ReflowProfile
 
   //Seconds to try getting to temp
   int PreHtTime = 80;
-  int HeatTime = 220; 
+  int HeatTime = 220;
   int RefTime = 30;
   int RefKpTime = 30;
   int CoolTime = 80;
@@ -143,3 +153,93 @@ void restoreDefaults(StoredVar * storedVar)
     storedVar->profiles[i].CoolTime = 80;
   }
 }
+
+void editProfileTime(int profileValueBeingEdited, ReflowProfile * profiles, int currentProfile, bool increment)
+{
+  int value = -1;
+  if (increment) value = 1;
+
+  switch (profileValueBeingEdited)
+  {
+    case PREHT:
+      {
+        profiles[currentProfile].PreHtTime = profiles[currentProfile].PreHtTime + value;
+        if (profiles[currentProfile].PreHtTime < 0) profiles[currentProfile].PreHtTime = 200;
+        if (profiles[currentProfile].PreHtTime > 200) profiles[currentProfile].PreHtTime = 0;
+        break;
+      }
+    case HEAT:
+      {
+        profiles[currentProfile].HeatTime = profiles[currentProfile].HeatTime + value;
+        if (profiles[currentProfile].HeatTime < 0) profiles[currentProfile].HeatTime = 200;
+        if (profiles[currentProfile].HeatTime > 200) profiles[currentProfile].HeatTime = 0;
+        break;
+      }
+    case REF:
+      {
+        profiles[currentProfile].RefTime = profiles[currentProfile].RefTime + value;
+        if (profiles[currentProfile].RefTime < 0) profiles[currentProfile].RefTime = 200;
+        if (profiles[currentProfile].RefTime > 200) profiles[currentProfile].RefTime = 0;
+        break;
+      }
+    case REFKP:
+      {
+        profiles[currentProfile].RefKpTime = profiles[currentProfile].RefKpTime + value;
+        if (profiles[currentProfile].RefKpTime < 0) profiles[currentProfile].RefKpTime = 200;
+        if (profiles[currentProfile].RefKpTime > 200) profiles[currentProfile].RefKpTime = 0;
+        break;
+      }
+    case COOL:
+      {
+        profiles[currentProfile].CoolTime = profiles[currentProfile].CoolTime + value;
+        if (profiles[currentProfile].CoolTime < 0) profiles[currentProfile].CoolTime = 200;
+        if (profiles[currentProfile].CoolTime > 200) profiles[currentProfile].CoolTime = 0;
+        break;
+      }
+  }
+}
+
+void editProfileTemp(int profileValueBeingEdited, ReflowProfile * profiles, int currentProfile, bool increment)
+{
+  int value = -1;
+  if (increment) value = 1;
+  switch (profileValueBeingEdited)
+  {
+    case PREHT:
+      {
+        profiles[currentProfile].PreHtTemp = profiles[currentProfile].PreHtTemp + value;
+        if (profiles[currentProfile].PreHtTemp < 0) profiles[currentProfile].PreHtTemp = 250;
+        if (profiles[currentProfile].PreHtTemp > 250) profiles[currentProfile].PreHtTemp = 0;
+        break;
+      }
+    case HEAT:
+      {
+        profiles[currentProfile].HeatTemp = profiles[currentProfile].HeatTemp + value;
+        if (profiles[currentProfile].HeatTemp < 0) profiles[currentProfile].HeatTemp = 250;
+        if (profiles[currentProfile].HeatTemp > 250) profiles[currentProfile].HeatTemp = 0;
+        break;
+      }
+    case REF:
+      {
+        profiles[currentProfile].RefTemp = profiles[currentProfile].RefTemp + value;
+        if (profiles[currentProfile].RefTemp < 0) profiles[currentProfile].RefTemp = 250;
+        if (profiles[currentProfile].RefTemp > 250) profiles[currentProfile].RefTemp = 0;
+        break;
+      }
+    case REFKP:
+      {
+        profiles[currentProfile].RefKpTemp = profiles[currentProfile].RefKpTemp + value;
+        if (profiles[currentProfile].RefKpTemp < 0) profiles[currentProfile].RefKpTemp = 250;
+        if (profiles[currentProfile].RefKpTemp > 250) profiles[currentProfile].RefKpTemp = 0;
+        break;
+      }
+    case COOL:
+      {
+        profiles[currentProfile].CoolTemp = profiles[currentProfile].CoolTemp + value;
+        if (profiles[currentProfile].CoolTemp < 0) profiles[currentProfile].CoolTemp = 250;
+        if (profiles[currentProfile].CoolTemp > 250) profiles[currentProfile].CoolTemp = 0;
+        break;
+      }
+  }
+}
+#endif
