@@ -77,7 +77,7 @@ double tc0Temp; //Back by default
 double tc1Temp; //Front by default
 double backTemp;
 double frontTemp;
-int tcState = 0; //0 normal (Back == TC0, Front == TC1), 1 swapped (Back == TC1, Front == TC0)
+int tcState = 0; //0 normal (Back == TC0, Front == TC1), 1 swapped (Back == TC1, Front == TC0), 2 averaging (Back=Front=(TC0+TC1)/2)
 
 double tc0PrevTemp;
 double tc1PrevTemp;
@@ -514,8 +514,10 @@ void drawMenu(int index)
       u8g2.setCursor(97, 24);
       if (tcState == 0)
         u8g2.print("B:0,F:1");
-      else
+      else if (tcState == 1)
         u8g2.print("B:1,F:0");
+      else if (tcState == 2)
+        u8g2.print("B:A,F:A");
       u8g2.setCursor(99, 34);
       u8g2.print("------");
       u8g2.setCursor(99, 44);
@@ -936,10 +938,14 @@ void readTemps()
     frontTemp = tc1Temp;
     backTemp = tc0Temp;
   }
-  else
+  else if (tcState == 0)
   {
     frontTemp = tc0Temp;
     backTemp = tc1Temp;
+  } else
+  {
+    frontTemp = (tc0Temp + tc1Temp) / 2;
+    backTemp = frontTemp;
   }
 }
 
@@ -1657,8 +1663,8 @@ void loop()
           valueChanged = true;
           break;
         case 1: //TC Change
-          if (tcState == 0) tcState = 1;
-          else tcState = 0;
+          tcState++;
+          if (tcState > 2) tcState = 0;
           valueChanged = true;
           break;
       }
