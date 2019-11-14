@@ -105,6 +105,7 @@ struct StoredVar
 
   uint8_t profile;
   uint8_t tcState;
+  uint8_t beepState;
   ReflowProfile profiles[MAX_PROFILES];
 };
 
@@ -136,6 +137,7 @@ void restoreDefaults(StoredVar * storedVar)
   storedVar->KdChan1_REFLOW = PID_KD_REFLOW_C1;
   storedVar->valid = true;
   storedVar->celsiusMode = true;
+  storedVar->beepState = true;
 
   for (int i = 0; i < MAX_PROFILES; i++)
   {

@@ -165,7 +165,7 @@ void printTestMenu()
   u8g2.print("------");
 }
 
-void printConfigMenu(bool celsiusMode, int tcState) {
+void printConfigMenu(bool celsiusMode, int tcState, bool beepState) {
   setCursor(2, 0);
   if (celsiusMode) u8g2.print("oC");
   else u8g2.print("oF");
@@ -176,11 +176,17 @@ void printConfigMenu(bool celsiusMode, int tcState) {
     u8g2.print("B:1,F:0");
   else if (tcState == 2)
     u8g2.print("B:A,F:A");
-  setCursor(6, 2);
+  if (beepState == true)
+  { 
+    setCursor(4, 2);
+    u8g2.print("Beep");
+  } else {
+    setCursor(6, 2);
+    u8g2.print("NoBeep");
+  }
+  setCursor(6, 3);
   u8g2.print("------");
-  setCursor(6, 2);
-  u8g2.print("------");
-  setCursor(6, 2);
+  setCursor(6, 4);
   u8g2.print("------");
 }
 

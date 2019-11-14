@@ -53,6 +53,8 @@ extern U8G2LOG u8g2log;
 extern uint8_t u8log_buffer[];
 extern int errorTimeout;
 
+bool beepState = true;
+
 bool saved = true;
 int writeTimeout = -1;
 FlashStorage(storedVarFlash, StoredVar);
@@ -230,6 +232,8 @@ void loadSettings()
 
   celsiusMode = storedVar.celsiusMode;
 
+  beepState = storedVar.beepState;
+
   PIDChan0.SetTunings(heaterPIDChan0.Kp_PREHEAT, heaterPIDChan0.Ki_PREHEAT, heaterPIDChan0.Kd_PREHEAT);
   PIDChan1.SetTunings(heaterPIDChan1.Kp_PREHEAT, heaterPIDChan1.Ki_PREHEAT, heaterPIDChan1.Kd_PREHEAT);
 
@@ -237,8 +241,8 @@ void loadSettings()
 }
 
 void checkSerial() 
-{  
-  if (Serial.available())
+{
+  while (Serial.available())
   {
     char c = Serial.read();
     if (c == '#')
@@ -357,7 +361,7 @@ void drawMenu(int index)
       printMainMenu(currentProfile);
       break;
     case 1: //Config Menu
-      printConfigMenu(celsiusMode, tcState);
+      printConfigMenu(celsiusMode, tcState, beepState);
       break;
     case 2: //Profile Menu
       printProfileMenu();
@@ -665,7 +669,7 @@ void loop()
     //Use top bar as info bar and use TOP display as state progress
     //Also draw profile as we go
 
-    buzzer(SPK);
+    if (beepState) buzzer(SPK);
     if (currentMenuID == 0)
     {
       switch (menuState)
@@ -884,6 +888,9 @@ void loop()
           if (tcState > 2) tcState = 0;
           valueChanged = true;
           break;
+        case 2: //Beep State
+          beepState = !beepState;
+          valueChanged = true;
       }
     }
 
@@ -895,13 +902,13 @@ void loop()
 
   if (buttonStateBACK == buttonStateTimeout)
   {
-    buzzer(SPK);
+    if (beepState) buzzer(SPK);
 
     switch (currentMenuID)
     {
       case 1: //Config
         currentMenuID = 0;
-        if (valueChanged)
+        if (valueChanged) //Try to save flash writes by only writing if variable actually changed when back pressed.
         {
           if (storedVar.celsiusMode != celsiusMode)
           {
@@ -913,6 +920,13 @@ void loop()
           if (storedVar.tcState != tcState)
           {
             storedVar.tcState = tcState;
+            saved = false;
+            writeTimeout = 1000;
+          }
+
+          if (storedVar.beepState != beepState)
+          {
+            storedVar.beepState = beepState;
             saved = false;
             writeTimeout = 1000;
           }
