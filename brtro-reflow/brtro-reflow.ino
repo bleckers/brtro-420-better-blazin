@@ -236,8 +236,8 @@ void loadSettings()
   currentProfile = storedVar.profile;
 }
 
-void checkSerial()
-{
+void checkSerial() 
+{  
   if (Serial.available())
   {
     char c = Serial.read();
@@ -260,6 +260,22 @@ void checkSerial()
       if (celsiusMode) Serial.print(frontTemp);
       else Serial.println(cToF(frontTemp));
     }
+    else if (c == ' ' || c == 'c' || c == 'C') //OK: Spacebar Pressed (or c)
+    {
+      buttonStateOK = 1; //Will trigger next loop
+    }
+    else if (c == 'b' || c == 'B' || c == 'v' || c == 'V') //Back: b pressed (or v)
+    {
+      buttonStateBACK = buttonStateTimeout; //Will trigger next loop (note this is handled differently to other buttons
+    }
+    else if (c == 'p' || c == 'P' || c == 'z' || c == 'Z') //Plus: p pressed (or z)
+    {
+      buttonStatePLUS = 1; //Will trigger next loop
+    }
+    else if (c == 'm' || c == 'M' || c == 'x' || c == 'X') //Minus: m pressed (or x)
+    {
+      buttonStateMINUS = 1; //Will trigger next loop
+    }
   }
 }
 
@@ -267,7 +283,7 @@ void setup()
 {
   /* \/ \/ \/ Keep below here \/ \/ \/ */
   /* Protect against bad code requiring ICSP flashing, do not remove */
-  /* This allows us to hold R on startup if we had a bad flash */
+  /* This allows us to hold # on startup if we had a bad flash */
   Serial.begin(115200);
   int countdown = 1000;
   while (countdown > 0)
@@ -388,7 +404,7 @@ void drawMenu(int index)
     case 5: //Edit Values
       printEditValues(profileValueBeingEdited, profiles, currentProfile, celsiusMode);
       break;
-      
+
     case 6: //Test
       printTestMenu();
       break;
