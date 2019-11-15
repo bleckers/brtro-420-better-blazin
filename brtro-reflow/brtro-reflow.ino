@@ -164,29 +164,43 @@ void okPress()
 
 void zeroCrossing()
 {
-  if (frontState == 1) //Turn on
+  int state = digitalRead(ZER_D);
+
+  if (state == 0) //We're in falling
   {
-    digitalWrite(FRONT_HEATER, 0);
-  } else { //Turn off
-    digitalWrite(FRONT_HEATER, 1);
-  }
-  if (backState == 1) //Turn on
-  {
-    digitalWrite(BACK_HEATER, 0);
-  } else { //Turn off
-    digitalWrite(BACK_HEATER, 1);
-  }
-  if (convectionState == 1) //Turn on
-  {
-    digitalWrite(CONVECTION, 0);
-  } else { //Turn off
-    digitalWrite(CONVECTION, 1);
-  }
-  if (exhaustState == 1) //Turn on
-  {
-    digitalWrite(EXHAUST, 0);
-  } else { //Turn off
-    digitalWrite(EXHAUST, 1);
+    if (frontState == 1) //Turn on
+    {
+      digitalWrite(FRONT_HEATER, 0);
+    }
+    if (backState == 1) //Turn on
+    {
+      digitalWrite(BACK_HEATER, 0);
+    }
+    if (convectionState == 1) //Turn on
+    {
+      digitalWrite(CONVECTION, 0);
+    }
+    if (exhaustState == 1) //Turn on
+    {
+      digitalWrite(EXHAUST, 0);
+    }
+  } else { //We're in rising
+    if (frontState == 0)
+    { //Turn off
+      digitalWrite(FRONT_HEATER, 1);
+    }
+    if (backState == 0)
+    { //Turn off
+      digitalWrite(BACK_HEATER, 1);
+    }
+    if (convectionState == 0)
+    { //Turn off
+      digitalWrite(CONVECTION, 1);
+    }
+    if (exhaustState == 0)
+    { //Turn off
+      digitalWrite(EXHAUST, 1);
+    }
   }
 }
 
@@ -240,7 +254,7 @@ void loadSettings()
   currentProfile = storedVar.profile;
 }
 
-void checkSerial() 
+void checkSerial()
 {
   while (Serial.available())
   {
@@ -317,7 +331,7 @@ void setup()
 
   //BACK button is not on interrupt
 
-  attachInterrupt(digitalPinToInterrupt(ZER_D), zeroCrossing, FALLING);
+  attachInterrupt(digitalPinToInterrupt(ZER_D), zeroCrossing, CHANGE);
 
   /* start MAX31855 */
   MAX31855_0.begin();

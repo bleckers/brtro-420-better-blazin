@@ -67,6 +67,8 @@
 
 void setOutputs()
 {
+  pinMode(ZER_D, INPUT);
+  
   pinMode(PLUS, INPUT);
   pinMode(MINUS, INPUT);
   pinMode(OK, INPUT);
