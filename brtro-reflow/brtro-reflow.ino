@@ -317,7 +317,7 @@ void setup()
 
   //BACK button is not on interrupt
 
-  attachInterrupt(digitalPinToInterrupt(ZER_D), zeroCrossing, RISING);
+  attachInterrupt(digitalPinToInterrupt(ZER_D), zeroCrossing, FALLING);
 
   /* start MAX31855 */
   MAX31855_0.begin();
