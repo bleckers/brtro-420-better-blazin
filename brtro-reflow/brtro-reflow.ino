@@ -144,6 +144,8 @@ boolean tuning = false;
 
 boolean currentStateAutotuned = false;
 
+boolean debug = false;
+
 void plusPress()
 {
   if (buttonStatePLUS == 0)
@@ -294,6 +296,39 @@ void checkSerial()
     {
       buttonStateMINUS = 1; //Will trigger next loop
     }
+    else if (c == '*')
+    {
+      debug = true;
+    }
+    else if (c == '8')
+    {
+      debug = false;
+    }
+    else if (c == 'A' && debug) //All outputs on for testing
+    {
+      frontState = 1;
+      digitalWrite(FRONT_HEATER, 0);
+      backState = 1;
+      digitalWrite(BACK_HEATER, 0);
+      convectionState = 1;
+      digitalWrite(CONVECTION, 0);
+      exhaustState = 1;
+      digitalWrite(EXHAUST, 0);
+      digitalWrite(SPK, 1);
+    }
+    else if (c == 'a' && debug) //All outputs off for testing
+    {
+      frontState = 0;
+      digitalWrite(FRONT_HEATER, 1);
+      backState = 0;
+      digitalWrite(BACK_HEATER, 1);
+      convectionState = 0;
+      digitalWrite(CONVECTION, 1);
+      exhaustState = 0;
+      digitalWrite(EXHAUST, 1);
+      digitalWrite(SPK, 0);
+    }
+   
   }
 }
 
@@ -609,6 +644,7 @@ void loop()
   }
   else if (buttonStateMINUS == 1)
   {
+    if (debug) Serial.println("Minus Pressed");
     if (enableMenu == 1)
     {
       prevMenuState = menuState;
@@ -645,6 +681,7 @@ void loop()
   }
   else if (buttonStatePLUS == 1)
   {
+    if (debug) Serial.println("Plus Pressed");
     if (enableMenu == 1)
     {
       prevMenuState = menuState;
@@ -682,7 +719,7 @@ void loop()
   {
     //Use top bar as info bar and use TOP display as state progress
     //Also draw profile as we go
-
+    if (debug) Serial.println("OK Pressed");
     if (beepState) buzzer(SPK);
     if (currentMenuID == 0)
     {
@@ -916,6 +953,7 @@ void loop()
 
   if (buttonStateBACK == buttonStateTimeout)
   {
+    if (debug) Serial.println("Back Pressed");
     if (beepState) buzzer(SPK);
 
     switch (currentMenuID)
