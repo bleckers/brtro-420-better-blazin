@@ -1,6 +1,6 @@
 # BRTRO-420 Better Blazin' Mod
 
-Now available on Tindie in limited quantities - https://www.tindie.com/products/blecky/brtro-420-better-blazin-mod/
+Now available on Tindie as a limited run - https://www.tindie.com/products/blecky/brtro-420-better-blazin-mod/
 
 <img src="https://cdn.hackaday.io/images/192931573971102114.jpg" width="400">
 
