@@ -2,7 +2,7 @@
 
 <img src="https://cdn.hackaday.io/images/192931573971102114.jpg" width="400">
 
-Modify the [BRTRO-420](http://www.charmhigh-tech.com/sale-7840318-hot-2500w-reflow-oven-brt-420-charmhigh-hot-air-infrared-300-300mm-soldering-rework-station.html) reflow oven to have an Arduino based reflow firmware, USB interface, cold junction compensation and zero crossing detection. This mod consists of a board that connects to the existing controller board, which replaces all the control circuitry and microcontroller.
+Modify the [BRTRO-420](http://www.charmhigh-tech.com/sale-7840318-hot-2500w-reflow-oven-brt-420-charmhigh-hot-air-infrared-300-300mm-soldering-rework-station.html) reflow oven to have an Arduino based reflow firmware, serial interface, cold junction compensation and zero crossing detection. This mod consists of a board that connects to the existing controller board, which replaces all the control circuitry and microcontroller.
 
 This oven has a few unique features over the popular T-962 oven, which makes it slightly more desirable if you don't mind the higher cost:
  - an internal convection fan built in.
@@ -29,7 +29,7 @@ Please note, the BOOTPROT fuse should be set to 0x07 before programming the boot
 The (topside) schematic/pinout for the existing serial port (the mod board hijacks the optocoupler connections):
 ![UART Pinout](https://cdn.hackaday.io/images/5605181570455859567.png)
 
-You can use any USB to UART adapter to connect to this port. Note MCU TX will connect to the RX port of your UART adapter and MCU RX to the TX port of the adapter.
+You can use any USB to UART adapter to connect to this port. Note MCU TX will connect to the RX port of your UART adapter and MCU RX to the TX port of the adapter. You can use something like [this](https://uk.rs-online.com/web/p/type-b-usb-connectors/1246393/) along with a USB to UART adapter to provide a convenient external USB connection. 
 
 The thermocouples will need to be replaced (the existing ones are glued in) and placed on the tray/PCBs for better thermal readouts (having them floating in the air with a black PCB can get the PCB up to 290 degrees Celsius). In the firmware, TC0 corresponds to the back two elements and TC1 corresponds to the front two (the back and front elements are individually controlled). Try to situate the thermocouples in the center of the elements on a sacrificial PCB or the PCB you are firing. If you aren't using a zone, just leave it where it is in the center of those elements. More info [here](https://hackaday.io/project/167324-brtro-420-better-blazin-mod/log/170604-getting-baked-gets-you-routed). Please note, some metal shielded thermocouples ground the tip to the shield, if you use these and you get GND error, you need to change the thermocouple type or disconnect the tip from the shield somehow.
 
