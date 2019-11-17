@@ -1,5 +1,7 @@
 # BRTRO-420 Better Blazin' Mod
 
+Now available on Tindie in limited quantities - https://www.tindie.com/products/blecky/brtro-420-better-blazin-mod/
+
 <img src="https://cdn.hackaday.io/images/192931573971102114.jpg" width="400">
 
 Modify the [BRTRO-420](http://www.charmhigh-tech.com/sale-7840318-hot-2500w-reflow-oven-brt-420-charmhigh-hot-air-infrared-300-300mm-soldering-rework-station.html) reflow oven to have an Arduino based reflow firmware, serial interface, cold junction compensation and zero crossing detection. This mod consists of a board that connects to the existing controller board, which replaces all the control circuitry and microcontroller.
@@ -38,5 +40,3 @@ The Arduino board files are based on the Mattairtech Xeno Mini SAMC (ATSAMC21G18
 The firmware also requires the [u8g2 library](https://github.com/olikraus/u8g2).
 
 Please note, when reprogramming firmware, all flash variable storage will be erased. So be sure to take note of your settings before reprogramming.
-
-Available on Tindie in limited quantities - https://www.tindie.com/products/blecky/brtro-420-better-blazin-mod/
