@@ -277,7 +277,7 @@ void checkSerial()
       if (celsiusMode) Serial.print(backTemp);
       else Serial.print(cToF(backTemp));
       Serial.print(",");
-      if (celsiusMode) Serial.print(frontTemp);
+      if (celsiusMode) Serial.println(frontTemp);
       else Serial.println(cToF(frontTemp));
     }
     else if (c == ' ' || c == 'c' || c == 'C') //OK: Spacebar Pressed (or c)
@@ -304,7 +304,7 @@ void checkSerial()
     {
       debug = false;
     }
-    else if (c == 'A' && debug) //All outputs on for testing
+    else if (c == 'A' && debug) //All outputs on for testing (will auto turn off in rest of code)
     {
       frontState = 1;
       digitalWrite(FRONT_HEATER, 0);
@@ -316,19 +316,6 @@ void checkSerial()
       digitalWrite(EXHAUST, 0);
       digitalWrite(SPK, 1);
     }
-    else if (c == 'a' && debug) //All outputs off for testing
-    {
-      frontState = 0;
-      digitalWrite(FRONT_HEATER, 1);
-      backState = 0;
-      digitalWrite(BACK_HEATER, 1);
-      convectionState = 0;
-      digitalWrite(CONVECTION, 1);
-      exhaustState = 0;
-      digitalWrite(EXHAUST, 1);
-      digitalWrite(SPK, 0);
-    }
-   
   }
 }
 
@@ -1621,44 +1608,44 @@ void loop()
   if (OutputChan0 < 0) OutputChan0 = 0;
   if (OutputChan1 < 0) OutputChan1 = 0;
 
-  if (currentState != NONE) // no PWM in NONE
-  {
-    //Create rough "PWM" (second long)
-    if (currentState != COOL && currentState != IDLEM) {
-      exhaustState = 0;
-      if (currentTime - secondsMillisStartChan0 <= OutputChan0 * 10)
-      {
-        //Turn on
-        backState = 1;
+    if (currentState != NONE) // no PWM in NONE
+    {
+      //Create rough "PWM" (second long)
+      if (currentState != COOL && currentState != IDLEM) {
+        exhaustState = 0;
+        if (currentTime - secondsMillisStartChan0 <= OutputChan0 * 10)
+        {
+          //Turn on
+          backState = 1;
+        } else {
+          if (currentTime - secondsMillisStartChan0 > 1000) secondsMillisStartChan0 = millis(); //Reset PWM
+          if (OutputChan0 < 100) backState = 0;
+        }
+
+        if (currentTime - secondsMillisStartChan1 <= OutputChan1 * 10)
+        {
+          frontState = 1;
+        } else {
+          if (currentTime - secondsMillisStartChan1 > 1000) secondsMillisStartChan1 = millis(); //Reset PWM
+          if (OutputChan1 < 100) frontState = 0;
+        }
+
       } else {
-        if (currentTime - secondsMillisStartChan0 > 1000) secondsMillisStartChan0 = millis(); //Reset PWM
-        if (OutputChan0 < 100) backState = 0;
-      }
 
-      if (currentTime - secondsMillisStartChan1 <= OutputChan1 * 10)
-      {
-        frontState = 1;
-      } else {
-        if (currentTime - secondsMillisStartChan1 > 1000) secondsMillisStartChan1 = millis(); //Reset PWM
-        if (OutputChan1 < 100) frontState = 0;
-      }
+        backState = 0;
+        frontState = 0;
 
-    } else {
-
-      backState = 0;
-      frontState = 0;
-
-      if (currentTime - secondsMillisStartChan0 <= OutputChan0 * 10 || currentTime - secondsMillisStartChan1 <= OutputChan1 * 10)
-      {
-        //Turn on fan
-        exhaustState = 1;
-      } else {
-        if (currentTime - secondsMillisStartChan0 > 1000) secondsMillisStartChan0 = millis(); //Reset PWM
-        if (currentTime - secondsMillisStartChan1 > 1000) secondsMillisStartChan1 = millis(); //Reset PWM
-        if (OutputChan0 < 100 || OutputChan1 < 100) exhaustState = 0;
+        if (currentTime - secondsMillisStartChan0 <= OutputChan0 * 10 || currentTime - secondsMillisStartChan1 <= OutputChan1 * 10)
+        {
+          //Turn on fan
+          exhaustState = 1;
+        } else {
+          if (currentTime - secondsMillisStartChan0 > 1000) secondsMillisStartChan0 = millis(); //Reset PWM
+          if (currentTime - secondsMillisStartChan1 > 1000) secondsMillisStartChan1 = millis(); //Reset PWM
+          if (OutputChan0 < 100 || OutputChan1 < 100) exhaustState = 0;
+        }
       }
     }
-  }
 
   if (writeTimeout == 0 && saved == false)
   {
