@@ -20,7 +20,7 @@ Blog entries about the project are here - https://hackaday.io/project/167324-brt
 
 Since we don't have a reset line via the optocouplers and UART, we need a way to reset the boards to program new firmware without having to disconnect everything (since this mod board sits underneath the existing controller). Once the bootloader has been loaded (with your favourite SAM programming tool to 0x00000000 of the FLASH) and you have programmed your first firmware rev via the Arduino IDE, the Arduino board can go into bootloader mode by issuing the "#" character over the serial terminal (at 115200 baud). This character gets issued automatically by the firmware loading process in the Arduino IDE, so you don't need to issue it manually when loading firmware. There is a few functions in the firmware that you must not remove, otherwise this won't work without pressing the reset button. You also must use the modified bootloader from this repo and not the original Mattairtech one otherwise this won't work.
 
-Please note, the BOOTPROT fuse should be set to 0x07 before programming the bootloader, so check this if you get errors on programming. Set the BOOTPROT bits to 8KB once programmed, which locks the bootloader flash from being programmed accidentally.
+Please note, the BOOTPROT fuse should be set to 0x07 before programming the bootloader, so check this if you get errors on programming. Set the BOOTPROT bits to 8KB once programmed (i.e, 0x2), which locks the bootloader flash from being programmed accidentally.
 
 The (topside) schematic/pinout for the existing serial port (the mod board hijacks the optocoupler connections):
 ![UART Pinout](https://cdn.hackaday.io/images/5605181570455859567.png)
