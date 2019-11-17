@@ -37,6 +37,4 @@ The firmware also requires the [u8g2 library](https://github.com/olikraus/u8g2).
 
 Please note, when reprogramming firmware, all flash variable storage will be erased. So be sure to take note of your settings before reprogramming.
 
-While gerbers are supplied in the repo, you can also use this link to order from OSHPark - https://oshpark.com/shared_projects/09GEIudS
-
-Alternatively if you don't mind waiting a couple of weeks, I can assemble, program and ship one for you for about $50USD inc shipping from Australia. Please contact me through the hackaday.io blog above if interested by leaving a comment or sending a message.
+Available on Tindie in limited quantities - https://www.tindie.com/products/blecky/brtro-420-better-blazin-mod/
