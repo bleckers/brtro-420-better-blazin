@@ -9,6 +9,8 @@
 #include "menu.h"
 #include "serial.h"
 
+#define VERSION "V1.01"
+
 double shouldBeTemp;
 
 uint8_t fanValue;
@@ -316,6 +318,14 @@ void checkSerial()
       digitalWrite(EXHAUST, 0);
       digitalWrite(SPK, 1);
     }
+    else if (c == '~') //Print screen to XBM
+    {
+      Serial.println("");
+      Serial.println("");
+      u8g2.writeBufferXBM(Serial); //Requires u8g2 v2.27 (latest from https://github.com/olikraus/U8g2_Arduino)
+      Serial.println("");
+      Serial.println("");
+    }
   }
 }
 
@@ -338,7 +348,12 @@ void setup()
 
   u8g2.begin();
   //u8g2.clearBuffer();
+
   u8g2.drawXBM(0, 0, splash_width, splash_height, splash_bits);
+
+  u8g2.setFont(u8g2_font_profont11_mr); // set the font for the terminal window
+  u8g2.drawStr(98, 59, VERSION);
+
   u8g2.sendBuffer();
 
   u8g2.setFont(u8g2_font_tom_thumb_4x6_mf); // set the font for the terminal window
@@ -755,6 +770,11 @@ void loop()
 
               //Update menu each second
               enableMenu = 0;
+              
+              Serial.println("");
+              Serial.print("Reflow software version: ");
+              Serial.println(VERSION);
+              
               serialPrintProfile(tcState, currentProfile, profiles, heaterPIDChan0, heaterPIDChan1, celsiusMode);
 
               startReflow();
@@ -1608,44 +1628,45 @@ void loop()
   if (OutputChan0 < 0) OutputChan0 = 0;
   if (OutputChan1 < 0) OutputChan1 = 0;
 
-    if (currentState != NONE) // no PWM in NONE
-    {
-      //Create rough "PWM" (second long)
-      if (currentState != COOL && currentState != IDLEM) {
-        exhaustState = 0;
-        if (currentTime - secondsMillisStartChan0 <= OutputChan0 * 10)
-        {
-          //Turn on
-          backState = 1;
-        } else {
-          if (currentTime - secondsMillisStartChan0 > 1000) secondsMillisStartChan0 = millis(); //Reset PWM
-          if (OutputChan0 < 100) backState = 0;
-        }
-
-        if (currentTime - secondsMillisStartChan1 <= OutputChan1 * 10)
-        {
-          frontState = 1;
-        } else {
-          if (currentTime - secondsMillisStartChan1 > 1000) secondsMillisStartChan1 = millis(); //Reset PWM
-          if (OutputChan1 < 100) frontState = 0;
-        }
-
+  if (currentState != NONE) // no PWM in NONE
+  {
+    //Create rough "PWM" (second long)
+    if (currentState != COOL && currentState != IDLEM) {
+      exhaustState = 0;
+      if (currentTime - secondsMillisStartChan0 <= OutputChan0 * 10)
+      {
+        //Turn on
+        backState = 1;
       } else {
+        if (currentTime - secondsMillisStartChan0 > 1000) secondsMillisStartChan0 = millis(); //Reset PWM
+        if (OutputChan0 < 100) backState = 0;
+      }
 
-        backState = 0;
-        frontState = 0;
+      if (currentTime - secondsMillisStartChan1 <= OutputChan1 * 10)
+      {
+        frontState = 1;
+      } else {
+        if (currentTime - secondsMillisStartChan1 > 1000) secondsMillisStartChan1 = millis(); //Reset PWM
+        if (OutputChan1 < 100) frontState = 0;
+      }
 
-        if (currentTime - secondsMillisStartChan0 <= OutputChan0 * 10 || currentTime - secondsMillisStartChan1 <= OutputChan1 * 10)
-        {
-          //Turn on fan
-          exhaustState = 1;
-        } else {
-          if (currentTime - secondsMillisStartChan0 > 1000) secondsMillisStartChan0 = millis(); //Reset PWM
-          if (currentTime - secondsMillisStartChan1 > 1000) secondsMillisStartChan1 = millis(); //Reset PWM
-          if (OutputChan0 < 100 || OutputChan1 < 100) exhaustState = 0;
-        }
+    } else {
+
+      backState = 0;
+      frontState = 0;
+
+      if (currentTime - secondsMillisStartChan0 <= OutputChan0 * 10 || currentTime - secondsMillisStartChan1 <= OutputChan1 * 10)
+      {
+        //Turn on fan
+        exhaustState = 1;
+      } else {
+        if (currentTime - secondsMillisStartChan0 > 1000) secondsMillisStartChan0 = millis(); //Reset PWM
+        if (currentTime - secondsMillisStartChan1 > 1000) secondsMillisStartChan1 = millis(); //Reset PWM
+        if (OutputChan0 < 100 || OutputChan1 < 100) exhaustState = 0;
       }
     }
+  }
+
 
   if (writeTimeout == 0 && saved == false)
   {
