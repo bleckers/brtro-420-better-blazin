@@ -37,6 +37,11 @@ The thermocouples will need to be replaced (the existing ones are glued in) and 
 
 The Arduino board files are based on the Mattairtech Xeno Mini SAMC (ATSAMC21G18A) supported firmware here - https://github.com/mattairtech/ArduinoCore-samd . The easiest way to get it working is to load the Mattairtech board, then replace the installed board files with the ones from the mod zip in this repo. I will get something more streamlined if there is any demand, but should get you up and running.
 
-The firmware also requires the 2.27 [u8g2 library](https://github.com/olikraus/U8g2_Arduino).
+The firmware also requires the 2.27 [u8g2 library](https://github.com/olikraus/U8g2_Arduino). You will need to comment out the following in src/U8x8lib.h:
+
+```
+/* Assumption: All Arduino Boards have "SPI.h" */
+#define U8X8_HAVE_HW_SPI
+```
 
 Please note, when reprogramming firmware, all flash variable storage will be erased. So be sure to take note of your settings before reprogramming.
