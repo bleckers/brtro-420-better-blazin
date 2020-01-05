@@ -44,4 +44,10 @@ The firmware also requires the 2.27 [u8g2 library](https://github.com/olikraus/U
 #define U8X8_HAVE_HW_SPI
 ```
 
+Alternatively you can load the latest precompiled binary file from the firmware directory, without installing the Arduino IDE. You can use the bossa mattairtech port (https://github.com/mattairtech/BOSSA) with the following command (substitute comX with /dev/ttyUSBx under Linux/OSX):
+
+bossac.exe -i -d --port=COM19 -e -w BRTRO-1.02.bin
+
+The precompiled Windows binary in the firmware directory (bossac-1.7.0-mattairtech-3-mingw32). Note the official bossa release doesn't yet support the SAMC21 so this modified version by mattairtech must be used.
+
 Please note, when reprogramming firmware, all flash variable storage will be erased. So be sure to take note of your settings before reprogramming.
