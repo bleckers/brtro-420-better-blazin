@@ -1,5 +1,7 @@
 # BRTRO-420 Better Blazin' Mod
 
+Instructions are available in the wiki - https://github.com/bleckers/brtro-420-better-blazin/wiki
+
 Now available on Tindie as a limited run - https://www.tindie.com/products/blecky/brtro-420-better-blazin-mod/
 
 <img src="https://cdn.hackaday.io/images/192931573971102114.jpg" width="400">
