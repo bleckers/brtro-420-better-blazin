@@ -9,7 +9,7 @@
 #include "menu.h"
 #include "serial.h"
 
-#define VERSION "V1.01"
+#define VERSION "V1.02"
 
 double shouldBeTemp;
 
@@ -513,19 +513,31 @@ void readTemps()
   tempHistoryHead++;
   if (tempHistoryHead >= NUMBER_OF_TEMP_AVERAGES)
     tempHistoryHead = 0;
+    
+  //tcState: 0 normal (Back == TC0, Front == TC1), 1 swapped (Back == TC1, Front == TC0), 2 averaging (Back=Front=(TC0+TC1)/2)
 
   if (tcState == 0)
   {
     frontTemp = tc1Temp;
     backTemp = tc0Temp;
   }
-  else if (tcState == 0)
+  else if (tcState == 1)
   {
     frontTemp = tc0Temp;
     backTemp = tc1Temp;
   } else
   {
-    frontTemp = (tc0Temp + tc1Temp) / 2;
+    if (tc0Detect != MAX31855_THERMOCOUPLE_OK)
+    {
+      frontTemp = tc1Temp;
+    }
+    if (tc1Detect != MAX31855_THERMOCOUPLE_OK)
+    {
+      frontTemp = tc0Temp;
+    }
+    else {
+      frontTemp = (tc0Temp + tc1Temp) / 2;
+    }
     backTemp = frontTemp;
   }
 }
@@ -770,11 +782,11 @@ void loop()
 
               //Update menu each second
               enableMenu = 0;
-              
+
               Serial.println("");
               Serial.print("Reflow software version: ");
               Serial.println(VERSION);
-              
+
               serialPrintProfile(tcState, currentProfile, profiles, heaterPIDChan0, heaterPIDChan1, celsiusMode);
 
               startReflow();
