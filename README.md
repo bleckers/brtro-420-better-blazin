@@ -36,20 +36,3 @@ The (topside) schematic/pinout for the existing serial port (the mod board hijac
 You can use any USB to UART adapter to connect to this port. Note MCU TX will connect to the RX port of your UART adapter and MCU RX to the TX port of the adapter. You can use something like [this](https://uk.rs-online.com/web/p/type-b-usb-connectors/1246393/) along with a USB to UART adapter to provide a convenient external USB connection. 
 
 The thermocouples will need to be replaced (the existing ones are glued in) and placed on the tray/PCBs for better thermal readouts (having them floating in the air with a black PCB can get the PCB up to 290 degrees Celsius). In the firmware, TC0 corresponds to the back two elements and TC1 corresponds to the front two (the back and front elements are individually controlled). Try to situate the thermocouples in the center of the elements on a sacrificial PCB or the PCB you are firing. If you aren't using a zone, just leave it where it is in the center of those elements. More info [here](https://hackaday.io/project/167324-brtro-420-better-blazin-mod/log/170604-getting-baked-gets-you-routed). Please note, some metal shielded thermocouples ground the tip to the shield, if you use these and you get GND error, you need to change the thermocouple type or disconnect the tip from the shield somehow.
-
-The Arduino board files are based on the Mattairtech Xeno Mini SAMC (ATSAMC21G18A) supported firmware here - https://github.com/mattairtech/ArduinoCore-samd . The easiest way to get it working is to load the Mattairtech board, then replace the installed board files with the ones from the mod zip in this repo. I will get something more streamlined if there is any demand, but should get you up and running.
-
-The firmware also requires the 2.27 [u8g2 library](https://github.com/olikraus/U8g2_Arduino). You will need to comment out the following in src/U8x8lib.h:
-
-```
-/* Assumption: All Arduino Boards have "SPI.h" */
-#define U8X8_HAVE_HW_SPI
-```
-
-Alternatively you can load the latest precompiled binary file from the firmware directory, without installing the Arduino IDE. You can use the bossa mattairtech port (https://github.com/mattairtech/BOSSA) with the following command (substitute comX with /dev/ttyUSBx under Linux/OSX):
-
-bossac.exe -i -d --port=COM19 -e -w BRTRO-1.02.bin
-
-The precompiled Windows binary in the firmware directory (bossac-1.7.0-mattairtech-3-mingw32). Note the official bossa release doesn't yet support the SAMC21 so this modified version by mattairtech must be used.
-
-Please note, when reprogramming firmware, all flash variable storage will be erased. So be sure to take note of your settings before reprogramming.
