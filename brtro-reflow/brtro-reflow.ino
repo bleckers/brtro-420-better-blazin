@@ -9,7 +9,7 @@
 #include "menu.h"
 #include "serial.h"
 
-#define VERSION "V1.02"
+#define VERSION "V1.03"
 
 double shouldBeTemp;
 
@@ -1592,6 +1592,10 @@ void loop()
             u8g2log.print("\fReflow Complete");
             printError();
 
+            if (beepState) {
+              beep(SPK, 700, 800); 
+            }
+
             refreshMenu();
             drawMenu(currentMenuID);
             drawMenuBox(menuState);
@@ -1610,7 +1614,7 @@ void loop()
           previousState = currentState;
           convectionState = 0;
 
-          //If temp over 50 and IDLE, enable fan
+          //If temp over START_TEMP_MAX and IDLE, enable fan
 
           if (backTemp > START_TEMP_MAX || frontTemp > START_TEMP_MAX)
           {

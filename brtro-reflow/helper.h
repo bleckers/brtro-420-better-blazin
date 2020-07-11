@@ -99,6 +99,16 @@ void buzzer(int pin)
   pinMode(pin, INPUT);
 }
 
+void beep(int pin, int freq, int duration)
+{
+  pinMode(pin, OUTPUT);
+  tone(pin, freq);
+  delay(duration);
+  noTone(pin);
+
+  pinMode(pin, INPUT);
+}
+
 int intLen(int n) {
   unsigned int number_of_digits = 0;
 

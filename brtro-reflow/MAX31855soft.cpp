@@ -233,19 +233,12 @@ int32_t MAX31855soft::readRawData(void)
   delay(MAX31855_CONVERSION_TIME);
 
   digitalWrite(_cs, LOW);                        //set CS low to enable SPI interface for MAX31855
-  digitalWrite(_sck, LOW);
-  
-  //delayMicroseconds(1); 
-  
-  for (int8_t i = 31; i >= 0; i--)               //read 32-bits via software SPI, in order MSB->LSB (D31..D0 bit)
+
+  for (int8_t i = 32; i > 0; i--)                //read 32-bits via software SPI, in order MSB->LSB (D31..D0 bit)
   {
-    digitalWrite(_sck, LOW);
-    //delayMicroseconds(1); 
-    
-    rawData = (rawData << 1) | digitalRead(_so);
-    
     digitalWrite(_sck, HIGH);
-    //delayMicroseconds(1); 
+    rawData = (rawData << 1) | digitalRead(_so);
+    digitalWrite(_sck, LOW);
   } 
 
   digitalWrite(_cs, HIGH);                       //disables SPI interface for MAX31855, but it will initiate measurement/conversion

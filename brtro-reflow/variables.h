@@ -2,9 +2,10 @@
 #ifndef _VARIABLES_H
 #define _VARIABLES_H
 
-#define START_TEMP_MAX 50
+#define START_TEMP_MAX 80
 #define NUMBER_OF_TEMP_AVERAGES 6
 #define NUMBER_OF_CROSSINGS_AVERAGES 2
+#define MAX_PROFILE_TEMP 260
 
 
 
@@ -210,36 +211,36 @@ void editProfileTemp(int profileValueBeingEdited, ReflowProfile * profiles, int 
     case PREHT:
       {
         profiles[currentProfile].PreHtTemp = profiles[currentProfile].PreHtTemp + value;
-        if (profiles[currentProfile].PreHtTemp < 0) profiles[currentProfile].PreHtTemp = 250;
-        if (profiles[currentProfile].PreHtTemp > 250) profiles[currentProfile].PreHtTemp = 0;
+        if (profiles[currentProfile].PreHtTemp < 0) profiles[currentProfile].PreHtTemp = MAX_PROFILE_TEMP;
+        if (profiles[currentProfile].PreHtTemp > MAX_PROFILE_TEMP) profiles[currentProfile].PreHtTemp = 0;
         break;
       }
     case HEAT:
       {
         profiles[currentProfile].HeatTemp = profiles[currentProfile].HeatTemp + value;
-        if (profiles[currentProfile].HeatTemp < 0) profiles[currentProfile].HeatTemp = 250;
-        if (profiles[currentProfile].HeatTemp > 250) profiles[currentProfile].HeatTemp = 0;
+        if (profiles[currentProfile].HeatTemp < 0) profiles[currentProfile].HeatTemp = MAX_PROFILE_TEMP;
+        if (profiles[currentProfile].HeatTemp > MAX_PROFILE_TEMP) profiles[currentProfile].HeatTemp = 0;
         break;
       }
     case REF:
       {
         profiles[currentProfile].RefTemp = profiles[currentProfile].RefTemp + value;
-        if (profiles[currentProfile].RefTemp < 0) profiles[currentProfile].RefTemp = 250;
-        if (profiles[currentProfile].RefTemp > 250) profiles[currentProfile].RefTemp = 0;
+        if (profiles[currentProfile].RefTemp < 0) profiles[currentProfile].RefTemp = MAX_PROFILE_TEMP;
+        if (profiles[currentProfile].RefTemp > MAX_PROFILE_TEMP) profiles[currentProfile].RefTemp = 0;
         break;
       }
     case REFKP:
       {
         profiles[currentProfile].RefKpTemp = profiles[currentProfile].RefKpTemp + value;
-        if (profiles[currentProfile].RefKpTemp < 0) profiles[currentProfile].RefKpTemp = 250;
-        if (profiles[currentProfile].RefKpTemp > 250) profiles[currentProfile].RefKpTemp = 0;
+        if (profiles[currentProfile].RefKpTemp < 0) profiles[currentProfile].RefKpTemp = MAX_PROFILE_TEMP;
+        if (profiles[currentProfile].RefKpTemp > MAX_PROFILE_TEMP) profiles[currentProfile].RefKpTemp = 0;
         break;
       }
     case COOL:
       {
         profiles[currentProfile].CoolTemp = profiles[currentProfile].CoolTemp + value;
-        if (profiles[currentProfile].CoolTemp < 0) profiles[currentProfile].CoolTemp = 250;
-        if (profiles[currentProfile].CoolTemp > 250) profiles[currentProfile].CoolTemp = 0;
+        if (profiles[currentProfile].CoolTemp < 0) profiles[currentProfile].CoolTemp = MAX_PROFILE_TEMP;
+        if (profiles[currentProfile].CoolTemp > MAX_PROFILE_TEMP) profiles[currentProfile].CoolTemp = 0;
         break;
       }
   }
