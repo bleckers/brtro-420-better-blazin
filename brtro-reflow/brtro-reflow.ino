@@ -8,8 +8,11 @@
 #include "variables.h"
 #include "menu.h"
 #include "serial.h"
+#include "watchdog.h"
 
-#define VERSION "V1.03"
+#define VERSION "V1.04"
+
+bool watchdogReset = false;
 
 double shouldBeTemp;
 
@@ -331,6 +334,9 @@ void checkSerial()
 
 void setup()
 {
+  //Set the outputs first to prevent powering on elements
+  setOutputs();
+
   /* \/ \/ \/ Keep below here \/ \/ \/ */
   /* Protect against bad code requiring ICSP flashing, do not remove */
   /* This allows us to hold # on startup if we had a bad flash */
@@ -344,7 +350,17 @@ void setup()
   }
   /* /\ /\ /\ Keep above here /\ /\ /\ */
 
-  setOutputs();
+  if (RSTC->RCAUSE.reg == RSTC_RCAUSE_WDT) {
+    Serial.println("Reset requested by Watchdog");
+    watchdogReset = true;
+  }
+  if (RSTC->RCAUSE.reg == RSTC_RCAUSE_BODVDD) {
+    Serial.println("Reset requested by BOD");
+    watchdogReset = true;
+  }
+  
+  bod_setup();
+  watchdog_setup();
 
   u8g2.begin();
   //u8g2.clearBuffer();
@@ -513,7 +529,7 @@ void readTemps()
   tempHistoryHead++;
   if (tempHistoryHead >= NUMBER_OF_TEMP_AVERAGES)
     tempHistoryHead = 0;
-    
+
   //tcState: 0 normal (Back == TC0, Front == TC1), 1 swapped (Back == TC1, Front == TC0), 2 averaging (Back=Front=(TC0+TC1)/2)
 
   if (tcState == 0)
@@ -643,6 +659,8 @@ void profileEdited()
 
 void loop()
 {
+  watchdog_feed();
+
   /* Back button not on interrupt */
   buttonBACK = digitalRead(BACK);
   if (buttonBACK == 0 && prevButtonBACK == 1 && buttonStateBACK == 0)
@@ -731,243 +749,248 @@ void loop()
 
   if (buttonStateOK == 1)
   {
-    //Use top bar as info bar and use TOP display as state progress
-    //Also draw profile as we go
-    if (debug) Serial.println("OK Pressed");
-    if (beepState) buzzer(SPK);
-    if (currentMenuID == 0)
-    {
-      switch (menuState)
+    if (watchdogReset) {
+      watchdogReset = false; //Keep watchdog message until OK pressed
+    } else {
+
+      //Use top bar as info bar and use TOP display as state progress
+      //Also draw profile as we go
+      if (debug) Serial.println("OK Pressed");
+      if (beepState) buzzer(SPK);
+      if (currentMenuID == 0)
       {
-        case 0: //Config
-          {
-            currentMenuID = 1;
-            break;
-          }
-        case 1: //Profile Number
-          {
-            currentProfile++;
-            if (currentProfile > 9)
-              currentProfile = 1;
-            drawProfile(profiles, tc1Temp, currentProfile);
-            storedVar.profile = currentProfile;
-            if (previousSavedProfile != currentProfile)
+        switch (menuState)
+        {
+          case 0: //Config
             {
-              writeTimeout = 10000;
-              saved = false;
-            } else {
-              saved = true;
+              currentMenuID = 1;
+              break;
             }
-            break;
+          case 1: //Profile Number
+            {
+              currentProfile++;
+              if (currentProfile > 9)
+                currentProfile = 1;
+              drawProfile(profiles, tc1Temp, currentProfile);
+              storedVar.profile = currentProfile;
+              if (previousSavedProfile != currentProfile)
+              {
+                writeTimeout = 10000;
+                saved = false;
+              } else {
+                saved = true;
+              }
+              break;
+            }
+          case 2: //Profile
+            {
+              currentMenuID = 2;
+              break;
+            }
+          case 3: //Tools
+            {
+              currentMenuID = 3;
+              break;
+            }
+          case 4: //Start
+            {
+              if (backTemp < START_TEMP_MAX && frontTemp < START_TEMP_MAX)
+              {
+                //TODO check for thermocouple
+                drawProfile(profiles, tc1Temp, currentProfile);
+                u8g2.updateDisplay();
+
+                currentMenuID = 4;
+
+                //Update menu each second
+                enableMenu = 0;
+
+                Serial.println("");
+                Serial.print("Reflow software version: ");
+                Serial.println(VERSION);
+
+                serialPrintProfile(tcState, currentProfile, profiles, heaterPIDChan0, heaterPIDChan1, celsiusMode);
+
+                startReflow();
+              } else {
+                u8g2log.print("\fERR:Temp >50");
+                printError();
+              }
+              break;
+            }
+        }
+      }
+      else if (currentMenuID == 4) //We're in reflow
+      {
+        enableMenu = 1;
+        currentMenuID = 0;
+
+        if (tuning == true)
+        {
+          Serial.println("Tuning Cancelled");
+          u8g2log.print("\fTuning Cancelled");
+        } else {
+          Serial.println("Reflow Cancelled");
+          u8g2log.print("\fReflow Cancelled");
+        }
+
+        if (tuning == true)
+        {
+          tuning = false;
+        }
+
+        disableReflow();
+
+        printError();
+      }
+      else if (currentMenuID == 2) //Editing profile value
+      {
+        currentMenuID = 5;
+
+        //Value being edited
+        profileValueBeingEdited = menuState;
+
+        if (menuState != 2 && menuState != 4)
+        {
+          if (menuState < 2) { // Goto nearest valid menu item
+            prevMenuState = 2;
+            menuState = 2;
+          } else  {
+            prevMenuState = 4;
+            menuState = 4;
           }
-        case 2: //Profile
-          {
-            currentMenuID = 2;
-            break;
-          }
-        case 3: //Tools
-          {
-            currentMenuID = 3;
-            break;
-          }
-        case 4: //Start
-          {
+        }
+      }
+      else if (currentMenuID == 5) //Editing a profile value
+      {
+        //Handled in plus/minus button
+      }
+      else if (currentMenuID == 3) //Tools Menu
+      {
+        switch (menuState)
+        {
+          case 0: //Tune
             if (backTemp < START_TEMP_MAX && frontTemp < START_TEMP_MAX)
             {
-              //TODO check for thermocouple
-              drawProfile(profiles, tc1Temp, currentProfile);
-              u8g2.updateDisplay();
+              if (tuning != true) { //Set the output to the desired starting frequency.
+                Serial.println("");
+                Serial.println("Tuning Started");
+                Serial.println("");
+                Serial.println("Mode,Seconds,SetPoint,TC0,RateTC0,PWMOut0,TC1,RateTC1,PWMOut1");
+                Serial.println("");
+                tuning = true;
+                currentState = PREHT;
 
-              currentMenuID = 4;
+                secondsMillisStartChan0 = millis();
+                secondsMillisStartChan1 = millis();
 
-              //Update menu each second
-              enableMenu = 0;
+                enableMenu = 0;
+                currentMenuID = 4;
 
-              Serial.println("");
-              Serial.print("Reflow software version: ");
-              Serial.println(VERSION);
+                startReflow();
 
-              serialPrintProfile(tcState, currentProfile, profiles, heaterPIDChan0, heaterPIDChan1, celsiusMode);
-
-              startReflow();
+                clearProfile();
+                u8g2.updateDisplay();
+              }
             } else {
               u8g2log.print("\fERR:Temp >50");
               printError();
             }
             break;
-          }
-      }
-    }
-    else if (currentMenuID == 4) //We're in reflow
-    {
-      enableMenu = 1;
-      currentMenuID = 0;
-
-      if (tuning == true)
-      {
-        Serial.println("Tuning Cancelled");
-        u8g2log.print("\fTuning Cancelled");
-      } else {
-        Serial.println("Reflow Cancelled");
-        u8g2log.print("\fReflow Cancelled");
-      }
-
-      if (tuning == true)
-      {
-        tuning = false;
-      }
-
-      disableReflow();
-
-      printError();
-    }
-    else if (currentMenuID == 2) //Editing profile value
-    {
-      currentMenuID = 5;
-
-      //Value being edited
-      profileValueBeingEdited = menuState;
-
-      if (menuState != 2 && menuState != 4)
-      {
-        if (menuState < 2) { // Goto nearest valid menu item
-          prevMenuState = 2;
-          menuState = 2;
-        } else  {
-          prevMenuState = 4;
-          menuState = 4;
+          case 1: //PID
+            currentMenuID = 7;
+            break;
+          case 2: //Test
+            currentMenuID = 6;
+            break;
+          case 3: //Reset
+            {
+              restoreDefaults(&storedVar);
+              loadSettings();
+              saved = false;
+              writeTimeout = 1000;
+            }
         }
       }
-    }
-    else if (currentMenuID == 5) //Editing a profile value
-    {
-      //Handled in plus/minus button
-    }
-    else if (currentMenuID == 3) //Tools Menu
-    {
-      switch (menuState)
+      else if (currentMenuID == 6) //Test Menu
       {
-        case 0: //Tune
-          if (backTemp < START_TEMP_MAX && frontTemp < START_TEMP_MAX)
-          {
-            if (tuning != true) { //Set the output to the desired starting frequency.
-              Serial.println("");
-              Serial.println("Tuning Started");
-              Serial.println("");
-              Serial.println("Mode,Seconds,SetPoint,TC0,RateTC0,PWMOut0,TC1,RateTC1,PWMOut1");
-              Serial.println("");
-              tuning = true;
-              currentState = PREHT;
-
-              secondsMillisStartChan0 = millis();
-              secondsMillisStartChan1 = millis();
-
-              enableMenu = 0;
-              currentMenuID = 4;
-
-              startReflow();
-
-              clearProfile();
-              u8g2.updateDisplay();
+        currentState = NONE;
+        switch (menuState)
+        {
+          case 0: //Front
+            if (frontState == 0) //Turn on
+            {
+              frontState = 1;
+            } else {
+              frontState = 0;
             }
-          } else {
-            u8g2log.print("\fERR:Temp >50");
-            printError();
-          }
-          break;
-        case 1: //PID
-          currentMenuID = 7;
-          break;
-        case 2: //Test
-          currentMenuID = 6;
-          break;
-        case 3: //Reset
-          {
-            restoreDefaults(&storedVar);
-            loadSettings();
-            saved = false;
-            writeTimeout = 1000;
-          }
-      }
-    }
-    else if (currentMenuID == 6) //Test Menu
-    {
-      currentState = NONE;
-      switch (menuState)
+            break;
+          case 1: //Back
+            if (backState == 0) //Turn on
+            {
+              backState = 1;
+            } else {
+              backState = 0;
+            }
+            break;
+          case 2: //Stir
+            if (convectionState == 0) //Turn on
+            {
+              convectionState = 1;
+            } else {
+              convectionState = 0;
+            }
+            break;
+          case 3: //Vent
+            if (exhaustState == 0) //Turn on
+            {
+              exhaustState = 1;
+            } else {
+              exhaustState = 0;
+            }
+            break;
+        }
+      } else if (currentMenuID == 7) //PID menu
       {
-        case 0: //Front
-          if (frontState == 0) //Turn on
-          {
-            frontState = 1;
-          } else {
-            frontState = 0;
-          }
-          break;
-        case 1: //Back
-          if (backState == 0) //Turn on
-          {
-            backState = 1;
-          } else {
-            backState = 0;
-          }
-          break;
-        case 2: //Stir
-          if (convectionState == 0) //Turn on
-          {
-            convectionState = 1;
-          } else {
-            convectionState = 0;
-          }
-          break;
-        case 3: //Vent
-          if (exhaustState == 0) //Turn on
-          {
-            exhaustState = 1;
-          } else {
-            exhaustState = 0;
-          }
-          break;
-      }
-    } else if (currentMenuID == 7) //PID menu
-    {
-      switch (menuState)
+        switch (menuState)
+        {
+          case 0: //Channel Selection
+            currentPIDEditSelection++;
+            if (currentPIDEditSelection > 5) currentPIDEditSelection = 0;
+            break;
+          case 1: //P
+            //TODO: Be able to edit these with +/-?
+            break;
+          case 2: //I
+            break;
+          case 3: //D
+            break;
+        }
+      } else if (currentMenuID == 1) //Config menu
       {
-        case 0: //Channel Selection
-          currentPIDEditSelection++;
-          if (currentPIDEditSelection > 5) currentPIDEditSelection = 0;
-          break;
-        case 1: //P
-          //TODO: Be able to edit these with +/-?
-          break;
-        case 2: //I
-          break;
-        case 3: //D
-          break;
-      }
-    } else if (currentMenuID == 1) //Config menu
-    {
-      switch (menuState)
-      {
+        switch (menuState)
+        {
 
-        case 0: //Temp units
-          celsiusMode = !celsiusMode;
-          valueChanged = true;
-          break;
-        case 1: //TC Change
-          tcState++;
-          if (tcState > 2) tcState = 0;
-          valueChanged = true;
-          break;
-        case 2: //Beep State
-          beepState = !beepState;
-          valueChanged = true;
+          case 0: //Temp units
+            celsiusMode = !celsiusMode;
+            valueChanged = true;
+            break;
+          case 1: //TC Change
+            tcState++;
+            if (tcState > 2) tcState = 0;
+            valueChanged = true;
+            break;
+          case 2: //Beep State
+            beepState = !beepState;
+            valueChanged = true;
+        }
       }
-    }
 
-    refreshMenu();
-    drawMenu(currentMenuID);
-    drawMenuBox(menuState);
-    u8g2.updateDisplay();
+      refreshMenu();
+      drawMenu(currentMenuID);
+      drawMenuBox(menuState);
+      u8g2.updateDisplay();
+    }
   }
 
   if (buttonStateBACK == buttonStateTimeout)
@@ -1174,6 +1197,16 @@ void loop()
     InputChan0 = backTemp; // update the variable the PID reads
 
     InputChan1 = frontTemp; // update the variable the PID reads
+
+    if (frontTemp >= 300 || backTemp >= 300) //Temp cutout
+    {
+      currentState = IDLEM;
+
+      Serial.println("Reflow Safety Temp Exceeded!");
+      u8g2log.print("\fReflow Cancelled");
+
+      printError();
+    }
 
     if (currentReflowSeconds > 1000) //16 minute safety timer
     {
@@ -1593,7 +1626,7 @@ void loop()
             printError();
 
             if (beepState) {
-              beep(SPK, 700, 800); 
+              beep(SPK, 700, 800);
             }
 
             refreshMenu();
@@ -1699,7 +1732,15 @@ void loop()
   if (currentTime - previousTimeUpdateTemp >= 2000) {
 
     previousTimeUpdateTemp = currentTime;
-    updateTemps();
+
+    if (watchdogReset)
+    {
+      u8g2log.print("\fWatchdog Reset");
+
+      printError();
+    } else {
+      updateTemps();
+    }
   }
 
   checkSerial();
