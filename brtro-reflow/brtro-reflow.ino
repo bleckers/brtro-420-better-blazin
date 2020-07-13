@@ -660,8 +660,6 @@ void profileEdited()
 
 void loop()
 {
-  watchdog_feed();
-
   /* Back button not on interrupt */
   buttonBACK = digitalRead(BACK);
   if (buttonBACK == 0 && prevButtonBACK == 1 && buttonStateBACK == 0)
@@ -1757,6 +1755,8 @@ void loop()
   if (currentTime - previousTimeUpdateTemp >= 2000) {
 
     previousTimeUpdateTemp = currentTime;
+
+    watchdog_feed();
 
     if (watchdogReset)
     {
