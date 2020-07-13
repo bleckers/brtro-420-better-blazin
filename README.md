@@ -1,5 +1,7 @@
 # BRTRO-420 Better Blazin' Mod
 
+### IMPORTANT! A user has reported an issue where the firmware can lockup under certain electrical conditions and cause a dangerously high temperature in the oven. A 1.04 release has been issued to include a watchdog and brownout reset to prevent this. Please update to at least the 1.04 release before operating!
+
 Instructions are available in the wiki - https://github.com/bleckers/brtro-420-better-blazin/wiki
 
 Now available on Tindie as a limited run - https://www.tindie.com/products/blecky/brtro-420-better-blazin-mod/
