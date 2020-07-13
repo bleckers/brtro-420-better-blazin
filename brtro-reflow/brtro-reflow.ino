@@ -15,6 +15,7 @@
 bool watchdogReset = false;
 
 double shouldBeTemp;
+uint8_t thermocoupleFailCount = 0;
 
 uint8_t fanValue;
 uint8_t heaterValueChan0;
@@ -358,7 +359,7 @@ void setup()
     Serial.println("Reset requested by BOD");
     watchdogReset = true;
   }
-  
+
   bod_setup();
   watchdog_setup();
 
@@ -796,7 +797,8 @@ void loop()
             {
               if (backTemp < START_TEMP_MAX && frontTemp < START_TEMP_MAX)
               {
-                //TODO check for thermocouple
+                thermocoupleFailCount = 0;
+
                 drawProfile(profiles, tc1Temp, currentProfile);
                 u8g2.updateDisplay();
 
@@ -1197,6 +1199,23 @@ void loop()
     InputChan0 = backTemp; // update the variable the PID reads
 
     InputChan1 = frontTemp; // update the variable the PID reads
+
+    if (currentState == PREHT || currentState == HEAT || currentState == REF || currentState == REFKP) {
+      if (tc0Detect != MAX31855_THERMOCOUPLE_OK || tc1Detect != MAX31855_THERMOCOUPLE_OK)
+      {
+        thermocoupleFailCount++;
+      }
+
+      if (thermocoupleFailCount > 6)
+      {
+        currentState = IDLEM;
+
+        Serial.println("Reflow Thermocouple Errors Exceeded!");
+        u8g2log.print("\fReflow Cancelled");
+
+        printError();
+      }
+    }
 
     if (frontTemp >= 300 || backTemp >= 300) //Temp cutout
     {
