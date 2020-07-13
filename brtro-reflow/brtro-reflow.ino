@@ -1206,12 +1206,14 @@ void loop()
         thermocoupleFailCount++;
       }
 
-      if (thermocoupleFailCount > 6)
+      if (thermocoupleFailCount > 10)
       {
         currentState = IDLEM;
 
+        disableReflow();
+
         Serial.println("Reflow Thermocouple Errors Exceeded!");
-        u8g2log.print("\fReflow Cancelled");
+        u8g2log.print("\fReflow Failed");
 
         printError();
       }
@@ -1221,8 +1223,10 @@ void loop()
     {
       currentState = IDLEM;
 
+      disableReflow();
+
       Serial.println("Reflow Safety Temp Exceeded!");
-      u8g2log.print("\fReflow Cancelled");
+      u8g2log.print("\fReflow Failed");
 
       printError();
     }
@@ -1231,8 +1235,10 @@ void loop()
     {
       currentState = IDLEM;
 
+      disableReflow();
+
       Serial.println("Reflow Safety Timer Exceeded!");
-      u8g2log.print("\fReflow Cancelled");
+      u8g2log.print("\fReflow Failed");
 
       printError();
     }

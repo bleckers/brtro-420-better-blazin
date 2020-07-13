@@ -15,13 +15,21 @@
 void bod_setup(void) {
   uint32_t temp = 0;
 
+/* - Clock prescaler set to divide the input clock by two
+ * - Continuous in active mode
+ * - Continuous in standby mode
+ * - Reset on BODVDD detect
+ * - Hysteresis enabled
+ * - BODVDD level 42 on VDD
+ * - BODVDD kept enabled during standby*/
+
   /* Check if module is enabled. */
   if (SUPC->BODVDD.reg & SUPC_BODVDD_ENABLE) {
     SUPC->BODVDD.reg &= ~SUPC_BODVDD_ENABLE;
   }
 
   /* Convert BOD prescaler, trigger action and mode to a bitmask */
-  temp |= SUPC_BODVDD_PSEL(0) | SUPC_BODVDD_ACTION(1) |
+  temp |= SUPC_BODVDD_PSEL(0) | SUPC_BODVDD_ACTION(1) | //BODVDD_PRESCALE_DIV_2 - BODVDD_ACTION_RESET
           BODVDD_ACTCFG_CONTINUOUS | BODVDD_STDBYCFG_CONTINUOUS;
 
   temp |= SUPC_BODVDD_HYST;
