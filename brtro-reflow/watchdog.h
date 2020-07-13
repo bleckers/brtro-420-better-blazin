@@ -33,7 +33,9 @@ void watchdog_setup(void) {
   //SAMC21 has fixed 1.024KHz OSC into counter instead of feeding from GCLK on SAMD21
 
   while (WDT->SYNCBUSY.reg);               // Wait for synchronization
-  WDT->CONFIG.reg |= 0x09;                 //Set to timeout after 4 seconds (4096 clock cycles)
+  WDT->CONFIG.reg = 0;
+  WDT->CTRLA.reg &= ~WDT_CTRLA_WEN;        // Disable window enable
+  WDT->CONFIG.reg |= 0x09;                 // Set to timeout after 4 seconds (4096 clock cycles)
   WDT->CTRLA.reg |= WDT_CTRLA_ENABLE;      // Enable the WDT in normal mode
   while (WDT->SYNCBUSY.reg);               // Wait for synchronization
 }
