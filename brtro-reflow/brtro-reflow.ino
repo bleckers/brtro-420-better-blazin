@@ -1,6 +1,7 @@
 #include "MAX31855soft.h" //https://github.com/enjoyneering/MAX31855
 #include <U8g2lib.h> //https://github.com/olikraus/u8g2
-#include "splash.h"
+//#include "splash-brt.h"
+#include "splash-chm.h"
 #include "helper.h"
 #include "FlashStorage.h"
 #include "PID_v1.h"
